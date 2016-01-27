@@ -51,5 +51,5 @@ class IdentitySearchList(generics.ListAPIView):
         contains = {
             "addresses": "msisdn:%s" % self.request.query_params["msisdn"]
         }
-        data = Identity.objects.filter(msisdn=contains)
+        data = Identity.objects.filter(details__contains=contains)
         return data

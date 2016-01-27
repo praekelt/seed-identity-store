@@ -10,7 +10,7 @@ router.register(r'identities', views.IdentityViewSet)
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browseable API.
 urlpatterns = [
-    url(r'^api/v1/', include(router.urls)),
     url(r'^api/v1/identities/search/$',
         views.IdentitySearchList.as_view()),
+    url(r'^api/v1/', include(router.urls)),
 ]

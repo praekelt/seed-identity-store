@@ -16,9 +16,6 @@ class GroupSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class IdentitySerializer(serializers.HyperlinkedModelSerializer):
-    # Hyperlinked correct?
-    # details = serializers.DictField(child=serializers.CharField())  ??
-
     class Meta:
         model = Identity
         read_only_fields = ('created_by', 'updated_by', 'created_at',
