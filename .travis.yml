@@ -11,4 +11,4 @@ install:
   - "pip install -r requirements-dev.txt --use-wheel"
 script:
   - flake8 .
-  - py.test --ds=familyconnect_registration.testsettings */tests.py
+  - py.test --ds=seed_identity_store.testsettings */tests.py
