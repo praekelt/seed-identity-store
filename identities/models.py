@@ -36,21 +36,3 @@ class Identity(models.Model):
 
     def __str__(self):  # __unicode__ on Python 2
         return str(self.id)
-
-    def address(self, addr_type=None):
-        """
-        returns a list of all matches or empty list
-        """
-        found = []
-        if addr_type is None and "default_addr_type" in self.details:
-            addr_type = self.details["default_addr_type"]
-        elif addr_type is None and "default_addr_type" not in self.details:
-            # fall back to sensible default
-            addr_type = "msisdn"
-        if "addresses" in self.details:
-            addresses = self.details["addresses"].split()
-            for address in addresses:
-                parts = address.split(":")
-                if parts[0] == str(addr_type):
-                    found.append(parts[1])
-        return found

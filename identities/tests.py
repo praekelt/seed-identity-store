@@ -86,8 +86,6 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         d = Identity.objects.last()
         self.assertEqual(d.details["name"], "Test Name 1")
         self.assertEqual(d.version, 1)
-        self.assertEqual(d.address(), ["+27123"])
-        self.assertEqual(d.address("email"), ["foo1@bar.com"])
 
     def test_read_identity_search_single(self):
         # Setup
@@ -135,8 +133,6 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         d = Identity.objects.last()
         self.assertEqual(d.details["name"], "Changed Name")
         self.assertEqual(d.version, 1)
-        self.assertEqual(d.address(), [])
-        self.assertEqual(d.address("email"), [])
 
     def test_delete_identity(self):
         # Setup
@@ -167,8 +163,6 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         d = Identity.objects.last()
         self.assertEqual(d.details["name"], "Test Name")
         self.assertEqual(d.version, 1)
-        self.assertEqual(d.address(), ["+27123"])
-        self.assertEqual(d.address("email"), ["foo@bar.com"])
 
     def test_create_identity_no_details(self):
         # Setup
