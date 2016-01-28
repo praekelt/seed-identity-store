@@ -46,10 +46,15 @@ class IdentitySearchList(generics.ListAPIView):
     def get_queryset(self):
         """
         This view should return a list of all the Identities
-        for the supplied msisdn
+        for the supplied query parameters. The query parameters
+        should be in the form:
+        {"address_type": "address"}
+        e.g.
+        {"msisdn": "+27123"}
+        {"email": "foo@bar.com"}
         """
-        contains = {
-            "addresses": "msisdn:%s" % self.request.query_params["msisdn"]
-        }
-        data = Identity.objects.filter(details__contains=contains)
+        address_type = list(self.request.query_params.keys())[0]
+        addr = self.request.query_params[address_type]
+        filter_string = "details__addresses__" + address_type + "__has_key"
+        data = Identity.objects.filter(**{filter_string: addr})
         return data
