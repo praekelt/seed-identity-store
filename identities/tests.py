@@ -12,21 +12,36 @@ TEST_IDENTITY1 = {
     "details": {
         "name": "Test Name 1",
         "default_addr_type": "msisdn",
-        "addresses": "msisdn:+27123 email:foo1@bar.com"
+        "addresses": {
+            "msisdn": {
+                "+27123": {}
+            },
+            "email": {
+                "foo1@bar.com": {"default": True},
+                "foo2@bar.com": {}
+            }
+        }
     }
 }
 TEST_IDENTITY2 = {
     "details": {
         "name": "Test Name 2",
         "default_addr_type": "msisdn",
-        "addresses": "msisdn:+27123"
+        "addresses": {
+            "msisdn": {
+                "+27123": {}
+            }
+        }
     }
 }
 TEST_IDENTITY3 = {
     "details": {
         "name": "Test Name 3",
-        "default_addr_type": "msisdn",
-        "addresses": "msisdn:+27555"
+        "addresses": {
+            "msisdn": {
+                "+27555": {}
+            }
+        }
     }
 }
 
@@ -98,7 +113,7 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
                                    content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)  # TODO #2 Use array
+        self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["details"]["name"], "Test Name 3")
 
     def test_read_identity_search_multiple(self):
@@ -112,8 +127,21 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
                                    content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)  # TODO #2 Use array, find 2
-        self.assertEqual(response.data[0]["details"]["name"], "Test Name 2")
+        self.assertEqual(len(response.data), 2)
+
+    def test_read_identity_search_email(self):
+        # Setup
+        self.make_identity()
+        self.make_identity(id_data=TEST_IDENTITY2)
+        self.make_identity(id_data=TEST_IDENTITY3)
+        # Execute
+        response = self.client.get('/api/v1/identities/search/',
+                                   {"email": "foo1@bar.com"},
+                                   content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["details"]["name"], "Test Name 1")
 
     def test_update_identity(self):
         # Setup
