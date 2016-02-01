@@ -55,6 +55,6 @@ class IdentitySearchList(generics.ListAPIView):
         """
         address_type = list(self.request.query_params.keys())[0]
         addr = self.request.query_params[address_type]
-        filter_string = "details__addresses__" + address_type + "__has_key"
+        filter_string = "details__addresses__%s__has_key" % address_type
         data = Identity.objects.filter(**{filter_string: addr})
         return data
