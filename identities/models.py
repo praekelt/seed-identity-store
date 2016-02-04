@@ -24,6 +24,12 @@ class Identity(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     version = models.IntegerField(default=1)
     details = JSONField()
+    communicate_through = models.ForeignKey(
+        'self', related_name='identities_communicate_through',
+        null=True, blank=True)
+    operator = models.ForeignKey(
+        'self', related_name='identities_created_by',
+        null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(User, related_name='identities_created',

@@ -175,7 +175,11 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
 
     def test_create_identity(self):
         # Setup
+        identity1 = self.make_identity()
+        identity2 = self.make_identity(id_data=TEST_IDENTITY2)
         post_identity = {
+            "communicate_through": '/api/v1/identities/%s/' % identity1.id,
+            "operator": '/api/v1/identities/%s/' % identity2.id,
             "details": {
                 "name": "Test Name",
                 "default_addr_type": "msisdn",
@@ -188,7 +192,7 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
                                     content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        d = Identity.objects.last()
+        d = Identity.objects.get(id=response.data["id"])
         self.assertEqual(d.details["name"], "Test Name")
         self.assertEqual(d.version, 1)
 

@@ -21,4 +21,5 @@ class IdentitySerializer(serializers.HyperlinkedModelSerializer):
         read_only_fields = ('created_by', 'updated_by', 'created_at',
                             'updated_at')
         fields = ('id', 'version', 'details',
+                  'communicate_through', 'operator',
                   'created_at', 'created_by', 'updated_at', 'updated_by')
