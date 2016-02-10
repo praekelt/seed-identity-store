@@ -53,8 +53,10 @@ class IdentitySearchList(generics.ListAPIView):
         {"msisdn": "+27123"}
         {"email": "foo@bar.com"}
         """
-        address_type = list(self.request.query_params.keys())[0]
-        addr = self.request.query_params[address_type]
-        filter_string = "details__addresses__%s__has_key" % address_type
-        data = Identity.objects.filter(**{filter_string: addr})
+        # query_field = list(self.request.query_params.keys())[0]
+        filter_string = str(list(self.request.query_params.keys())[0])
+        filter_value = self.request.query_params[filter_string]
+        if filter_string.startswith("details__addresses__"):
+            filter_string += "__has_key"
+        data = Identity.objects.filter(**{filter_string: filter_value})
         return data

@@ -12,6 +12,7 @@ TEST_IDENTITY1 = {
     "details": {
         "name": "Test Name 1",
         "default_addr_type": "msisdn",
+        "personnel_code": "12345",
         "addresses": {
             "msisdn": {
                 "+27123": {}
@@ -27,6 +28,7 @@ TEST_IDENTITY2 = {
     "details": {
         "name": "Test Name 2",
         "default_addr_type": "msisdn",
+        "personnel_code": "23456",
         "addresses": {
             "msisdn": {
                 "+27123": {}
@@ -35,6 +37,7 @@ TEST_IDENTITY2 = {
     }
 }
 TEST_IDENTITY3 = {
+    "version": 2,
     "details": {
         "name": "Test Name 3",
         "addresses": {
@@ -109,7 +112,7 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         self.make_identity(id_data=TEST_IDENTITY3)
         # Execute
         response = self.client.get('/api/v1/identities/search/',
-                                   {"msisdn": "+27555"},
+                                   {"details__addresses__msisdn": "+27555"},
                                    content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -123,7 +126,7 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         self.make_identity(id_data=TEST_IDENTITY3)
         # Execute
         response = self.client.get('/api/v1/identities/search/',
-                                   {"msisdn": "+27123"},
+                                   {"details__addresses__msisdn": "+27123"},
                                    content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -135,13 +138,58 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         self.make_identity(id_data=TEST_IDENTITY2)
         self.make_identity(id_data=TEST_IDENTITY3)
         # Execute
-        response = self.client.get('/api/v1/identities/search/',
-                                   {"email": "foo1@bar.com"},
-                                   content_type='application/json')
+        response = self.client.get(
+            '/api/v1/identities/search/',
+            {"details__addresses__email": "foo1@bar.com"},
+            content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]["details"]["name"], "Test Name 1")
+
+    def test_read_identity_search_personnel_code(self):
+        # Setup
+        self.make_identity()
+        self.make_identity(id_data=TEST_IDENTITY2)
+        self.make_identity(id_data=TEST_IDENTITY3)
+        # Execute
+        response = self.client.get('/api/v1/identities/search/',
+                                   {"details__personnel_code": "23456"},
+                                   content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["details"]["name"], "Test Name 2")
+
+    def test_read_identity_search_version(self):
+        # Setup
+        self.make_identity()
+        self.make_identity(id_data=TEST_IDENTITY2)
+        self.make_identity(id_data=TEST_IDENTITY3)
+        # Execute
+        response = self.client.get('/api/v1/identities/search/',
+                                   {"version": 2},
+                                   content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["details"]["name"], "Test Name 3")
+
+    def test_read_identity_search_communicate_through(self):
+        # Setup
+        self.make_identity()
+        test_id2 = self.make_identity(id_data=TEST_IDENTITY2)
+        test_id3 = TEST_IDENTITY3.copy()
+        test_id3["communicate_through"] = test_id2
+        self.make_identity(id_data=test_id3)
+        # Execute
+        response = self.client.get('/api/v1/identities/search/',
+                                   {"communicate_through": str(test_id2.id)},
+                                   content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["details"]["name"], "Test Name 3")
 
     def test_update_identity(self):
         # Setup
