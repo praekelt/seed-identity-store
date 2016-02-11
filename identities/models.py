@@ -3,6 +3,7 @@ import uuid
 from django.contrib.postgres.fields import JSONField
 from django.contrib.auth.models import User
 from django.db import models
+from django.utils.encoding import python_2_unicode_compatible
 
 
 class IdentityManager(models.Manager):
@@ -12,6 +13,7 @@ class IdentityManager(models.Manager):
         return self.filter(details__addresses__contains=addr)
 
 
+@python_2_unicode_compatible
 class Identity(models.Model):
 
     """
@@ -40,5 +42,5 @@ class Identity(models.Model):
 
     objects = IdentityManager()
 
-    def __str__(self):  # __unicode__ on Python 2
+    def __str__(self):
         return str(self.id)
