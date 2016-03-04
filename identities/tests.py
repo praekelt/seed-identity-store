@@ -273,7 +273,7 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         opt_out["identity"] = reverse('identity-detail',
                                       kwargs={'pk': identity.pk})
         # Execute
-        response = self.client.post('/api/v1/opt_out/',
+        response = self.client.post('/api/v1/optout/',
                                     json.dumps(opt_out),
                                     content_type='application/json')
         # Check
