@@ -50,5 +50,5 @@ class OptOut(models.Model):
     """An opt_out"""
     identity = models.ForeignKey(Identity)
     request_source = models.CharField(null=False, max_length=100)
-    request_source_id = models.IntegerField(null=True)
+    request_source_id = models.CharField(null=True, max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
