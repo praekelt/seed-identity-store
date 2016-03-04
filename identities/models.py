@@ -44,3 +44,11 @@ class Identity(models.Model):
 
     def __str__(self):
         return str(self.id)
+
+
+class OptOut(models.Model):
+    """An opt_out"""
+    identity = models.ForeignKey(Identity)
+    request_source = models.CharField(null=False, max_length=100)
+    request_source_id = models.IntegerField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
