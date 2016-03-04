@@ -1,9 +1,9 @@
-from rest_framework import viewsets, generics
+from rest_framework import viewsets, generics, mixins
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth.models import User, Group
-from .models import Identity
+from .models import Identity, OptOut
 from .serializers import (UserSerializer, GroupSerializer,
-                          IdentitySerializer)
+                          IdentitySerializer, OptOutSerializer)
 
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
@@ -60,3 +60,11 @@ class IdentitySearchList(generics.ListAPIView):
             filter_string += "__has_key"
         data = Identity.objects.filter(**{filter_string: filter_value})
         return data
+
+
+class OptOutViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
+    """ API endpoint that allows users to be viewed or edited.
+    """
+    permission_classes = (IsAuthenticated,)
+    queryset = OptOut.objects.all()
+    serializer_class = OptOutSerializer
