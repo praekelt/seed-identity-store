@@ -1,12 +1,13 @@
 import json
 
 from django.contrib.auth.models import User
+from django.core.urlresolvers import reverse
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
 
-from .models import Identity
+from .models import Identity, OptOut
 
 TEST_IDENTITY1 = {
     "details": {
@@ -46,6 +47,11 @@ TEST_IDENTITY3 = {
             }
         }
     }
+}
+TEST_OPTOUT = {
+    "identity": "/api/v1/identities/1/",
+    "request_source": "test_source",
+    "request_source_id": 1
 }
 
 
@@ -257,3 +263,22 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         d = Identity.objects.last()
         self.assertEqual(d.version, 1)
+
+
+class TestOptOutAPI(AuthenticatedAPITestCase):
+    def test_create_opt_out(self):
+        # Setup
+        identity = self.make_identity()
+        opt_out = TEST_OPTOUT
+        opt_out["identity"] = reverse('identity-detail',
+                                      kwargs={'pk': identity.pk})
+        # Execute
+        response = self.client.post('/api/v1/opt_out/',
+                                    json.dumps(opt_out),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        d = OptOut.objects.get(id=response.data["id"])
+        self.assertEqual(d.identity, identity)
+        self.assertEqual(d.request_source, "test_source")
+        self.assertEqual(d.request_source_id, 1)
