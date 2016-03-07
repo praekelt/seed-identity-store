@@ -1,9 +1,10 @@
 from rest_framework import viewsets, generics, mixins
 from rest_framework.permissions import IsAuthenticated
+from rest_hooks.models import Hook
 from django.contrib.auth.models import User, Group
 from .models import Identity, OptOut
 from .serializers import (UserSerializer, GroupSerializer,
-                          IdentitySerializer, OptOutSerializer)
+                          IdentitySerializer, OptOutSerializer, HookSerializer)
 
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
@@ -68,3 +69,14 @@ class OptOutViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     permission_classes = (IsAuthenticated,)
     queryset = OptOut.objects.all()
     serializer_class = OptOutSerializer
+
+
+class HookViewSet(viewsets.ModelViewSet):
+    """ Retrieve, create, update or destroy webhooks.
+    """
+    permission_classes = (IsAuthenticated,)
+    queryset = Hook.objects.all()
+    serializer_class = HookSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)

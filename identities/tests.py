@@ -6,6 +6,7 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
+from rest_hooks.models import Hook
 
 from .models import Identity, OptOut
 
@@ -51,7 +52,7 @@ TEST_IDENTITY3 = {
 TEST_OPTOUT = {
     "identity": "/api/v1/identities/1/",
     "request_source": "test_source",
-    "request_source_id": 1
+    "request_source_id": "1"
 }
 
 
@@ -282,3 +283,20 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         self.assertEqual(d.identity, identity)
         self.assertEqual(d.request_source, "test_source")
         self.assertEqual(d.request_source_id, '1')
+
+    def test_create_webhook(self):
+        # Setup
+        user = User.objects.get(username='testuser')
+        post_data = {
+            "target": "http://example.com/test_source/",
+            "event": "optout.requested"
+        }
+        # Execute
+        response = self.client.post('/api/v1/webhook/',
+                                    json.dumps(post_data),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        d = Hook.objects.last()
+        self.assertEqual(d.target, 'http://example.com/test_source/')
+        self.assertEqual(d.user, user)

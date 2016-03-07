@@ -47,6 +47,7 @@ INSTALLED_APPS = (
     'rest_framework',
     'rest_framework.authtoken',
     'django_filters',
+    'rest_hooks',
     # us
     'identities',
 
@@ -125,6 +126,12 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ),
     'DEFAULT_FILTER_BACKENDS': ('rest_framework.filters.DjangoFilterBackend',)
+}
+
+# Webhook event definition
+HOOK_EVENTS = {
+    # 'any.event.name': 'App.Model.Action' (created/updated/deleted)
+    'optout.requested': 'identities.OptOut.created+'
 }
 
 # Celery configuration options
