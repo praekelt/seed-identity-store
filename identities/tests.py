@@ -281,4 +281,4 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         d = OptOut.objects.get(id=response.data["id"])
         self.assertEqual(d.identity, identity)
         self.assertEqual(d.request_source, "test_source")
-        self.assertEqual(d.request_source_id, 1)
+        self.assertEqual(d.request_source_id, '1')
