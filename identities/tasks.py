@@ -1,3 +1,5 @@
+import json
+import requests
 from celery.task import Task
 from celery.utils.log import get_task_logger
 
@@ -21,3 +23,20 @@ class The_Incr(Task):
         return int(anum)+1
 
 the_incr = The_Incr()
+
+
+class DeliverHook(Task):
+    def run(self, target, payload, instance=None, hook=None, **kwargs):
+        """
+        target:     the url to receive the payload.
+        payload:    a python primitive data structure
+        instance:   a possibly null "trigger" instance
+        hook:       the defining Hook object
+        """
+        requests.post(
+            url=target,
+            data=json.dumps(payload),
+            headers={'Content-Type': 'application/json'}
+        )
+
+deliver_hook_wrapper = DeliverHook.delay

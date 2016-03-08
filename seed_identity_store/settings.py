@@ -48,6 +48,7 @@ INSTALLED_APPS = (
     'rest_framework.authtoken',
     'django_filters',
     'rest_hooks',
+    'djcelery',
     # us
     'identities',
 
@@ -133,6 +134,8 @@ HOOK_EVENTS = {
     # 'any.event.name': 'App.Model.Action' (created/updated/deleted)
     'optout.requested': 'identities.OptOut.created+'
 }
+
+HOOK_DELIVERER = 'seed_identity_store.tasks.deliver_hook_wrapper'
 
 # Celery configuration options
 CELERY_RESULT_BACKEND = 'djcelery.backends.database:DatabaseBackend'

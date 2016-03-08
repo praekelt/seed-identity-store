@@ -52,3 +52,17 @@ class OptOut(models.Model):
     request_source = models.CharField(null=False, max_length=100)
     request_source_id = models.CharField(null=True, max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def serialize_hook(self, hook):
+        # optional, there are serialization defaults
+        # we recommend always sending the Hook
+        # metadata along for the ride as well
+        return {
+            'hook': hook.dict(),
+            'data': {
+                'identity': str(self.identity),
+                'request_source': self.request_source,
+                'request_source_id': self.request_source_id,
+                'created_at': self.created_at.isoformat(),
+            }
+        }
