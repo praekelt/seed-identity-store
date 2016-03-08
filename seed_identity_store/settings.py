@@ -135,7 +135,7 @@ HOOK_EVENTS = {
     'optout.requested': 'identities.OptOut.created+'
 }
 
-HOOK_DELIVERER = 'seed_identity_store.tasks.deliver_hook_wrapper'
+HOOK_DELIVERER = 'identities.tasks.deliver_hook_wrapper'
 
 # Celery configuration options
 CELERY_RESULT_BACKEND = 'djcelery.backends.database:DatabaseBackend'
