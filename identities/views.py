@@ -70,6 +70,9 @@ class OptOutViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     queryset = OptOut.objects.all()
     serializer_class = OptOutSerializer
 
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
 
 class HookViewSet(viewsets.ModelViewSet):
     """ Retrieve, create, update or destroy webhooks.

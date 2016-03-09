@@ -47,22 +47,12 @@ class Identity(models.Model):
 
 
 class OptOut(models.Model):
-    """An opt_out"""
+    """An optout"""
     identity = models.ForeignKey(Identity)
     request_source = models.CharField(null=False, max_length=100)
     request_source_id = models.CharField(null=True, max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(User, related_name='optout_created',
+                                   null=True)
 
-    def serialize_hook(self, hook):
-        # optional, there are serialization defaults
-        # we recommend always sending the Hook
-        # metadata along for the ride as well
-        return {
-            'hook': hook.dict(),
-            'data': {
-                'identity': str(self.identity),
-                'request_source': self.request_source,
-                'request_source_id': self.request_source_id,
-                'created_at': self.created_at.isoformat(),
-            }
-        }
+    user = property(lambda self: self.created_by)

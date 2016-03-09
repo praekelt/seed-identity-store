@@ -31,6 +31,7 @@ class OptOutSerializer(serializers.HyperlinkedModelSerializer):
         model = OptOut
         fields = ('id', 'identity', 'request_source', 'request_source_id',
                   'created_at')
+        read_only_fields = ('created_by')
 
 
 class HookSerializer(serializers.ModelSerializer):
