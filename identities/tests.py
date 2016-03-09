@@ -52,7 +52,7 @@ TEST_IDENTITY3 = {
 TEST_OPTOUT = {
     "identity": "/api/v1/identities/1/",
     "request_source": "test_source",
-    "request_source_id": "1",
+    "requestor_source_id": "1",
     "address_type": "test_address_type",
     "address": "test_address"
 }
@@ -284,7 +284,7 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         d = OptOut.objects.get(id=response.data["id"])
         self.assertEqual(d.identity, identity)
         self.assertEqual(d.request_source, "test_source")
-        self.assertEqual(d.request_source_id, '1')
+        self.assertEqual(d.requestor_source_id, '1')
 
     def test_create_webhook(self):
         # Setup

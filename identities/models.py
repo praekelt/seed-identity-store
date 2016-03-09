@@ -48,14 +48,27 @@ class Identity(models.Model):
 
 class OptOut(models.Model):
     """An optout"""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    identity = models.ForeignKey(Identity, null=True)
-    address_type = models.CharField(null=False, max_length=50, default="")
-    address = models.CharField(null=False, max_length=255, default="")
-    request_source = models.CharField(null=False, max_length=100)
-    request_source_id = models.CharField(null=True, max_length=100)
-    created_at = models.DateTimeField(auto_now_add=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False,
+                          help_text="UUID this optout request.")
+    identity = models.ForeignKey(Identity, null=True,
+                                 help_text="UUID for the identity opting out.")
+    address_type = models.CharField(
+        null=False, max_length=50, default="",
+        help_text="Address type used to identify the identity.")
+    address = models.CharField(
+        null=False, max_length=255, default="",
+        help_text="Address used to identify the identity.")
+    request_source = models.CharField(
+        null=False, max_length=100,
+        help_text="Service that the optout was requested from.")
+    requestor_source_id = models.CharField(
+        null=True, max_length=100,
+        help_text="ID for the user requesting the optout on the service that\
+        it was requested from.")
+    created_at = models.DateTimeField(auto_now_add=True,
+                                      help_text="Time request was received.")
     created_by = models.ForeignKey(User, related_name='optout_created',
-                                   null=True)
+                                   null=True,
+                                   help_text="User creating the OptOut")
 
     user = property(lambda self: self.created_by)
