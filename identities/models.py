@@ -3,6 +3,8 @@ import uuid
 from django.contrib.postgres.fields import JSONField
 from django.contrib.auth.models import User
 from django.db import models
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.utils.encoding import python_2_unicode_compatible
 
 
@@ -72,3 +74,25 @@ class OptOut(models.Model):
                                    help_text="User creating the OptOut")
 
     user = property(lambda self: self.created_by)
+
+
+@receiver(post_save, sender=OptOut)
+def handle_optout(sender, instance, **kwargs):
+    if instance.identity is not None:
+        identity = instance.identity
+    else:
+        filter_string = \
+            "details__addresses__" + instance.address_type + "__has_key"
+        filter_value = instance.address
+        identities = Identity.objects.filter(**{filter_string: filter_value})
+        try:
+            identity = identities[0]
+        except IndexError:
+            identity = None
+
+    if identity is None:
+        identity = Identity.objects.create(details={"addresses": {
+            instance.address_type: {
+                instance.address: {}
+            }
+        }})
