@@ -49,7 +49,9 @@ class Identity(models.Model):
 class OptOut(models.Model):
     """An optout"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    identity = models.ForeignKey(Identity)
+    identity = models.ForeignKey(Identity, null=True)
+    address_type = models.CharField(null=False, max_length=50, default="")
+    address = models.CharField(null=False, max_length=255, default="")
     request_source = models.CharField(null=False, max_length=100)
     request_source_id = models.CharField(null=True, max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)

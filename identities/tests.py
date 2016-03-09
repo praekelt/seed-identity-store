@@ -52,7 +52,9 @@ TEST_IDENTITY3 = {
 TEST_OPTOUT = {
     "identity": "/api/v1/identities/1/",
     "request_source": "test_source",
-    "request_source_id": "1"
+    "request_source_id": "1",
+    "address_type": "test_address_type",
+    "address": "test_address"
 }
 
 
