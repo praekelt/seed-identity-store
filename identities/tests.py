@@ -116,8 +116,9 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
                                    content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["details"]["name"], "Test Name 3")
+        data = response.json()
+        self.assertEqual(len(data["results"]), 1)
+        self.assertEqual(data["results"][0]["details"]["name"], "Test Name 3")
 
     def test_read_identity_search_multiple(self):
         # Setup
@@ -130,7 +131,8 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
                                    content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        data = response.json()
+        self.assertEqual(len(data["results"]), 2)
 
     def test_read_identity_search_email(self):
         # Setup
@@ -144,8 +146,9 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
             content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["details"]["name"], "Test Name 1")
+        data = response.json()
+        self.assertEqual(len(data["results"]), 1)
+        self.assertEqual(data["results"][0]["details"]["name"], "Test Name 1")
 
     def test_read_identity_search_personnel_code(self):
         # Setup
@@ -158,8 +161,9 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
                                    content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["details"]["name"], "Test Name 2")
+        data = response.json()
+        self.assertEqual(len(data["results"]), 1)
+        self.assertEqual(data["results"][0]["details"]["name"], "Test Name 2")
 
     def test_read_identity_search_version(self):
         # Setup
@@ -172,8 +176,9 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
                                    content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["details"]["name"], "Test Name 3")
+        data = response.json()
+        self.assertEqual(len(data["results"]), 1)
+        self.assertEqual(data["results"][0]["details"]["name"], "Test Name 3")
 
     def test_read_identity_search_communicate_through(self):
         # Setup
@@ -188,8 +193,9 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
                                    content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["details"]["name"], "Test Name 3")
+        data = response.json()
+        self.assertEqual(len(data["results"]), 1)
+        self.assertEqual(data["results"][0]["details"]["name"], "Test Name 3")
 
     def test_update_identity(self):
         # Setup
