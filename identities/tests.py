@@ -53,11 +53,10 @@ TEST_IDENTITY3 = {
     }
 }
 TEST_OPTOUT = {
-    "identity": "/api/v1/identities/1/",
     "request_source": "test_source",
     "requestor_source_id": "1",
-    "address_type": "test_address_type",
-    "address": "test_address"
+    "address_type": "msisdn",
+    "address": "+27123"
 }
 
 
@@ -272,7 +271,7 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
 
 
 class TestOptOutAPI(AuthenticatedAPITestCase):
-    def test_create_opt_out(self):
+    def test_create_opt_out_with_identity(self):
         # Setup
         identity = self.make_identity()
         opt_out = TEST_OPTOUT
@@ -286,6 +285,35 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         d = OptOut.objects.get(id=response.data["id"])
         self.assertEqual(d.identity, identity)
+        self.assertEqual(d.request_source, "test_source")
+        self.assertEqual(d.requestor_source_id, '1')
+
+    def test_create_opt_out_with_address(self):
+        # Setup
+        identity = self.make_identity()
+        opt_out = TEST_OPTOUT
+        # Execute
+        response = self.client.post('/api/v1/optout/',
+                                    json.dumps(opt_out),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        d = OptOut.objects.get(id=response.data["id"])
+        self.assertEqual(d.identity, identity)
+        self.assertEqual(d.request_source, "test_source")
+        self.assertEqual(d.requestor_source_id, '1')
+
+    def test_create_opt_out_no_address(self):
+        # Setup
+        opt_out = TEST_OPTOUT
+        # Execute
+        response = self.client.post('/api/v1/optout/',
+                                    json.dumps(opt_out),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        d = OptOut.objects.get(id=response.data["id"])
+        self.assertEqual(d.identity, Identity.objects.all()[0])
         self.assertEqual(d.request_source, "test_source")
         self.assertEqual(d.requestor_source_id, '1')
 
