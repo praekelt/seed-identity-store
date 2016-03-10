@@ -132,10 +132,12 @@ REST_FRAMEWORK = {
 # Webhook event definition
 HOOK_EVENTS = {
     # 'any.event.name': 'App.Model.Action' (created/updated/deleted)
-    'optout.requested': 'identities.OptOut.created+'
+    'optout.requested': None
 }
 
 HOOK_DELIVERER = 'identities.tasks.deliver_hook_wrapper'
+
+HOOK_AUTH_TOKEN = os.environ.get('HOOK_AUTH_TOKEN', 'REPLACEME')
 
 # Celery configuration options
 CELERY_RESULT_BACKEND = 'djcelery.backends.database:DatabaseBackend'
