@@ -3,13 +3,14 @@ import responses
 
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
+from django.db.models.signals import post_save
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
 from rest_hooks.models import Hook
 
-from .models import Identity, OptOut
+from .models import Identity, OptOut, handle_optout
 from .tasks import deliver_hook_wrapper
 
 TEST_IDENTITY1 = {
@@ -328,3 +329,28 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         # Execute
         self.assertEqual(responses.calls[0].request.url,
                          "http://example.com/api/v1/")
+
+    @responses.activate
+    def test_webhook(self):
+        # Setup
+        post_save.connect(receiver=handle_optout, sender=OptOut)
+        user = User.objects.get(username='testuser')
+        Hook.objects.create(user=user,
+                            event='optout.requested',
+                            target='http://example.com/api/v1/')
+        identity = self.make_identity()
+        payload = {
+            'details': identity.details,
+        }
+        responses.add(
+            responses.POST,
+            'http://example.com/api/v1/',
+            json.dumps(payload),
+            status=200, content_type='application/json')
+
+        OptOut.objects.create(
+            identity=identity, created_by=user, request_source="test_source",
+            requestor_source_id=1, address_type="msisdn", address="+27123")
+
+        self.assertEqual(responses.calls[0].request.url,
+                         'http://example.com/api/v1/')
