@@ -1,4 +1,5 @@
 import json
+import responses
 
 from django.contrib.auth.models import User
 from django.core.urlresolvers import reverse
@@ -9,6 +10,7 @@ from rest_framework.authtoken.models import Token
 from rest_hooks.models import Hook
 
 from .models import Identity, OptOut
+from .tasks import deliver_hook_wrapper
 
 TEST_IDENTITY1 = {
     "details": {
@@ -302,3 +304,27 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         d = Hook.objects.last()
         self.assertEqual(d.target, 'http://example.com/test_source/')
         self.assertEqual(d.user, user)
+
+    @responses.activate
+    def test_deliver_hook_task(self):
+        # Setup
+        payload = {
+            "details": {
+                "addresses": {
+                    "msisdn": {
+                        "+27123": {}
+                    }
+                }
+            }
+        }
+        responses.add(
+            responses.POST,
+            "http://example.com/registration/",
+            json.dumps(payload),
+            status=200, content_type='application/json')
+
+        deliver_hook_wrapper("http://example.com/registration/", payload)
+
+        # Execute
+        self.assertEqual(responses.calls[0].request.url,
+                         "http://example.com/registration/")
