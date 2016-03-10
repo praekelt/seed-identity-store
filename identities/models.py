@@ -6,6 +6,7 @@ from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils.encoding import python_2_unicode_compatible
+from rest_hooks.signals import raw_hook_event
 
 
 class IdentityManager(models.Manager):
@@ -102,3 +103,13 @@ def handle_optout(sender, instance, **kwargs):
         instance.identity = identity
         # Saving causes this method to run again so we return
         return instance.save()
+
+    raw_hook_event.send(
+        sender=None,
+        event_name='optout.requested',
+        payload={
+            'details': identity.details,
+        },
+        user=instance.user,
+        send_hook_meta=False
+    )
