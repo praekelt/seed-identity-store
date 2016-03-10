@@ -319,12 +319,12 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         }
         responses.add(
             responses.POST,
-            "http://example.com/registration/",
+            'http://example.com/api/v1/',
             json.dumps(payload),
             status=200, content_type='application/json')
 
-        deliver_hook_wrapper("http://example.com/registration/", payload)
+        deliver_hook_wrapper('http://example.com/api/v1/', payload)
 
         # Execute
         self.assertEqual(responses.calls[0].request.url,
-                         "http://example.com/registration/")
+                         "http://example.com/api/v1/")
