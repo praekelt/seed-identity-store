@@ -354,3 +354,10 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
 
         self.assertEqual(responses.calls[0].request.url,
                          'http://example.com/api/v1/')
+        identity = Identity.objects.get(pk=identity.pk)
+        self.assertEqual(identity.details, {
+            "name": "removed",
+            "default_addr_type": "removed",
+            "personnel_code": "removed",
+            "addresses": "removed"
+        })

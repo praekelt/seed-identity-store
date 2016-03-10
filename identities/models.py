@@ -1,4 +1,5 @@
 import uuid
+import datetime
 
 from django.contrib.postgres.fields import JSONField
 from django.contrib.auth.models import User
@@ -47,6 +48,15 @@ class Identity(models.Model):
 
     def __str__(self):
         return str(self.id)
+
+    def remove_details(self, user):
+        updated_details = {}
+        for attribute, value in self.details.iteritems():
+            updated_details[attribute] = "removed"
+        self.details = updated_details
+        self.updated_at = datetime.datetime.now()
+        self.updated_by = user
+        self.save()
 
 
 class OptOut(models.Model):
@@ -113,3 +123,5 @@ def handle_optout(sender, instance, **kwargs):
         user=instance.user,
         send_hook_meta=False
     )
+
+    identity.remove_details(instance.user)
