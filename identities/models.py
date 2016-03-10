@@ -89,6 +89,9 @@ def handle_optout(sender, instance, **kwargs):
             identity = identities[0]
         except IndexError:
             identity = None
+        instance.identity = identity
+        # Saving causes this method to run again so we return
+        return instance.save()
 
     if identity is None:
         identity = Identity.objects.create(details={"addresses": {
@@ -96,3 +99,6 @@ def handle_optout(sender, instance, **kwargs):
                 instance.address: {}
             }
         }})
+        instance.identity = identity
+        # Saving causes this method to run again so we return
+        return instance.save()
