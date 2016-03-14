@@ -1,5 +1,4 @@
 import uuid
-import datetime
 
 from django.contrib.postgres.fields import JSONField
 from django.contrib.auth.models import User
