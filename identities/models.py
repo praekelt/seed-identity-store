@@ -87,7 +87,10 @@ class OptOut(models.Model):
 
 
 @receiver(post_save, sender=OptOut)
-def handle_optout(sender, instance, **kwargs):
+def handle_optout(sender, instance, created, **kwargs):
+    if created is False:
+        return
+
     if instance.identity is not None:
         identity = instance.identity
     else:
@@ -104,8 +107,7 @@ def handle_optout(sender, instance, **kwargs):
                 }
             }})
         instance.identity = identity
-        # Saving causes this method to run again so we return
-        return instance.save()
+        instance.save()
 
     raw_hook_event.send(
         sender=None,
