@@ -51,7 +51,7 @@ class Identity(models.Model):
 
     def remove_details(self, user):
         updated_details = {}
-        for attribute, value in self.details.iteritems():
+        for attribute, value in self.details.items():
             updated_details[attribute] = "removed"
         self.details = updated_details
         self.updated_at = datetime.datetime.now()
