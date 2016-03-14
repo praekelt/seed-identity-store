@@ -21,4 +21,12 @@ class DeliverHook(Task):
             }
         )
 
-deliver_hook_wrapper = DeliverHook.delay
+
+def deliver_hook_wrapper(target, payload, instance, hook):
+    if instance is not None:
+        instance_id = instance.id
+    else:
+        instance_id = None
+    kwargs = dict(target=target, payload=payload,
+                  instance_id=instance_id, hook_id=hook.id)
+    DeliverHook.apply_async(kwargs=kwargs)

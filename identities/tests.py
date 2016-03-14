@@ -477,6 +477,11 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
     @responses.activate
     def test_deliver_hook_task(self):
         # Setup
+        user = User.objects.get(username='testuser')
+        hook = Hook.objects.create(
+            user=user,
+            event='optout.requested',
+            target='http://example.com/api/v1/')
         payload = {
             "details": {
                 "addresses": {
@@ -492,7 +497,7 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
             json.dumps(payload),
             status=200, content_type='application/json')
 
-        deliver_hook_wrapper('http://example.com/api/v1/', payload)
+        deliver_hook_wrapper('http://example.com/api/v1/', payload, None, hook)
 
         # Execute
         self.assertEqual(responses.calls[0].request.url,
