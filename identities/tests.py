@@ -434,8 +434,8 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
                                     content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.content,
-                         '["There is no idenity with this address."]')
+        self.assertEqual(response.json()[0],
+                         "There is no idenity with this address.")
 
     def test_create_opt_out_multiple_matching_addresses(self):
         # Setup
@@ -454,8 +454,8 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         # Check
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(
-            response.content,
-            '["There are multiple identities with this address."]')
+            response.json()[0],
+            "There are multiple identities with this address.")
 
     def test_create_webhook(self):
         # Setup
