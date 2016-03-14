@@ -80,7 +80,8 @@ class OptOutViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
             identities = Identity.objects.filter(
                 **{filter_string: filter_value})
             if len(identities) == 0:
-                raise ValidationError('There is no idenity with this address.')
+                raise ValidationError(
+                    'There is no identity with this address.')
             if len(identities) > 1:
                 raise ValidationError(
                     'There are multiple identities with this address.')

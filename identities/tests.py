@@ -435,7 +435,7 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         # Check
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(response.json()[0],
-                         "There is no idenity with this address.")
+                         "There is no identity with this address.")
 
     def test_create_opt_out_multiple_matching_addresses(self):
         # Setup
