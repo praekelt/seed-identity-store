@@ -271,15 +271,19 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
 
 
 class TestOptOutAPI(AuthenticatedAPITestCase):
-    def test_create_opt_out_with_identity(self):
+    def test_create_optout_with_identity(self):
         # Setup
         identity = self.make_identity()
-        opt_out = TEST_OPTOUT
-        opt_out["identity"] = reverse('identity-detail',
-                                      kwargs={'pk': identity.pk})
+        optout_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123",
+            "identity": reverse('identity-detail', kwargs={'pk': identity.pk})
+        }
         # Execute
         response = self.client.post('/api/v1/optout/',
-                                    json.dumps(opt_out),
+                                    json.dumps(optout_data),
                                     content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -288,13 +292,18 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         self.assertEqual(d.request_source, "test_source")
         self.assertEqual(d.requestor_source_id, '1')
 
-    def test_create_opt_out_with_address(self):
+    def test_create_optout_with_address(self):
         # Setup
         identity = self.make_identity()
-        opt_out = TEST_OPTOUT
+        optout_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123"
+        }
         # Execute
         response = self.client.post('/api/v1/optout/',
-                                    json.dumps(opt_out),
+                                    json.dumps(optout_data),
                                     content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -303,12 +312,17 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         self.assertEqual(d.request_source, "test_source")
         self.assertEqual(d.requestor_source_id, '1')
 
-    def test_create_opt_out_no_matching_address(self):
+    def test_create_optout_no_matching_address(self):
         # Setup
-        opt_out = TEST_OPTOUT
+        optout_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123"
+        }
         # Execute
         response = self.client.post('/api/v1/optout/',
-                                    json.dumps(opt_out),
+                                    json.dumps(optout_data),
                                     content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -319,10 +333,15 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         # Setup
         self.make_identity()
         self.make_identity()
-        opt_out = TEST_OPTOUT
+        optout_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123"
+        }
         # Execute
         response = self.client.post('/api/v1/optout/',
-                                    json.dumps(opt_out),
+                                    json.dumps(optout_data),
                                     content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
@@ -372,7 +391,7 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
                          "http://example.com/api/v1/")
 
     @responses.activate
-    def test_webhook(self):
+    def test_optout_webhook_combination(self):
         # Setup
         post_save.connect(receiver=handle_optout, sender=OptOut)
         user = User.objects.get(username='testuser')
