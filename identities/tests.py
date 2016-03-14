@@ -13,52 +13,6 @@ from rest_hooks.models import Hook
 from .models import Identity, OptOut, handle_optout
 from .tasks import deliver_hook_wrapper
 
-TEST_IDENTITY1 = {
-    "details": {
-        "name": "Test Name 1",
-        "default_addr_type": "msisdn",
-        "personnel_code": "12345",
-        "addresses": {
-            "msisdn": {
-                "+27123": {}
-            },
-            "email": {
-                "foo1@bar.com": {"default": True},
-                "foo2@bar.com": {}
-            }
-        }
-    }
-}
-TEST_IDENTITY2 = {
-    "details": {
-        "name": "Test Name 2",
-        "default_addr_type": "msisdn",
-        "personnel_code": "23456",
-        "addresses": {
-            "msisdn": {
-                "+27123": {}
-            }
-        }
-    }
-}
-TEST_IDENTITY3 = {
-    "version": 2,
-    "details": {
-        "name": "Test Name 3",
-        "addresses": {
-            "msisdn": {
-                "+27555": {}
-            }
-        }
-    }
-}
-TEST_OPTOUT = {
-    "request_source": "test_source",
-    "requestor_source_id": "1",
-    "address_type": "msisdn",
-    "address": "+27123"
-}
-
 
 class APITestCase(TestCase):
 
@@ -68,7 +22,24 @@ class APITestCase(TestCase):
 
 class AuthenticatedAPITestCase(APITestCase):
 
-    def make_identity(self, id_data=TEST_IDENTITY1):
+    def make_identity(self, id_data=None):
+        if id_data is None:
+            id_data = {
+                "details": {
+                    "name": "Test Name 1",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "12345",
+                    "addresses": {
+                        "msisdn": {
+                            "+27123": {}
+                        },
+                        "email": {
+                            "foo1@bar.com": {"default": True},
+                            "foo2@bar.com": {}
+                        }
+                    }
+                }
+            }
         return Identity.objects.create(**id_data)
 
     def setUp(self):
@@ -119,8 +90,29 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_read_identity_search_single(self):
         # Setup
         self.make_identity()
-        self.make_identity(id_data=TEST_IDENTITY2)
-        self.make_identity(id_data=TEST_IDENTITY3)
+        self.make_identity(id_data={
+            "details": {
+                "name": "Test Name 2",
+                "default_addr_type": "msisdn",
+                "personnel_code": "23456",
+                "addresses": {
+                    "msisdn": {
+                        "+27123": {}
+                    }
+                }
+            }
+        })
+        self.make_identity(id_data={
+            "version": 2,
+            "details": {
+                "name": "Test Name 3",
+                "addresses": {
+                    "msisdn": {
+                        "+27555": {}
+                    }
+                }
+            }
+        })
         # Execute
         response = self.client.get('/api/v1/identities/search/',
                                    {"details__addresses__msisdn": "+27555"},
@@ -133,8 +125,29 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_read_identity_search_multiple(self):
         # Setup
         self.make_identity()
-        self.make_identity(id_data=TEST_IDENTITY2)
-        self.make_identity(id_data=TEST_IDENTITY3)
+        self.make_identity(id_data={
+            "details": {
+                "name": "Test Name 2",
+                "default_addr_type": "msisdn",
+                "personnel_code": "23456",
+                "addresses": {
+                    "msisdn": {
+                        "+27123": {}
+                    }
+                }
+            }
+        })
+        self.make_identity(id_data={
+            "version": 2,
+            "details": {
+                "name": "Test Name 3",
+                "addresses": {
+                    "msisdn": {
+                        "+27555": {}
+                    }
+                }
+            }
+        })
         # Execute
         response = self.client.get('/api/v1/identities/search/',
                                    {"details__addresses__msisdn": "+27123"},
@@ -146,8 +159,29 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_read_identity_search_email(self):
         # Setup
         self.make_identity()
-        self.make_identity(id_data=TEST_IDENTITY2)
-        self.make_identity(id_data=TEST_IDENTITY3)
+        self.make_identity(id_data={
+            "details": {
+                "name": "Test Name 2",
+                "default_addr_type": "msisdn",
+                "personnel_code": "23456",
+                "addresses": {
+                    "msisdn": {
+                        "+27123": {}
+                    }
+                }
+            }
+        })
+        self.make_identity(id_data={
+            "version": 2,
+            "details": {
+                "name": "Test Name 3",
+                "addresses": {
+                    "msisdn": {
+                        "+27555": {}
+                    }
+                }
+            }
+        })
         # Execute
         response = self.client.get(
             '/api/v1/identities/search/',
@@ -161,8 +195,29 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_read_identity_search_personnel_code(self):
         # Setup
         self.make_identity()
-        self.make_identity(id_data=TEST_IDENTITY2)
-        self.make_identity(id_data=TEST_IDENTITY3)
+        self.make_identity({
+            "details": {
+                "name": "Test Name 2",
+                "default_addr_type": "msisdn",
+                "personnel_code": "23456",
+                "addresses": {
+                    "msisdn": {
+                        "+27123": {}
+                    }
+                }
+            }
+        })
+        self.make_identity(id_data={
+            "version": 2,
+            "details": {
+                "name": "Test Name 3",
+                "addresses": {
+                    "msisdn": {
+                        "+27555": {}
+                    }
+                }
+            }
+        })
         # Execute
         response = self.client.get('/api/v1/identities/search/',
                                    {"details__personnel_code": "23456"},
@@ -175,8 +230,29 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_read_identity_search_version(self):
         # Setup
         self.make_identity()
-        self.make_identity(id_data=TEST_IDENTITY2)
-        self.make_identity(id_data=TEST_IDENTITY3)
+        self.make_identity(id_data={
+            "details": {
+                "name": "Test Name 2",
+                "default_addr_type": "msisdn",
+                "personnel_code": "23456",
+                "addresses": {
+                    "msisdn": {
+                        "+27123": {}
+                    }
+                }
+            }
+        })
+        self.make_identity(id_data={
+            "version": 2,
+            "details": {
+                "name": "Test Name 3",
+                "addresses": {
+                    "msisdn": {
+                        "+27555": {}
+                    }
+                }
+            }
+        })
         # Execute
         response = self.client.get('/api/v1/identities/search/',
                                    {"version": 2},
@@ -189,8 +265,29 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_read_identity_search_communicate_through(self):
         # Setup
         self.make_identity()
-        test_id2 = self.make_identity(id_data=TEST_IDENTITY2)
-        test_id3 = TEST_IDENTITY3.copy()
+        test_id2 = self.make_identity(id_data={
+            "details": {
+                "name": "Test Name 2",
+                "default_addr_type": "msisdn",
+                "personnel_code": "23456",
+                "addresses": {
+                    "msisdn": {
+                        "+27123": {}
+                    }
+                }
+            }
+        })
+        test_id3 = {
+            "version": 2,
+            "details": {
+                "name": "Test Name 3",
+                "addresses": {
+                    "msisdn": {
+                        "+27555": {}
+                    }
+                }
+            }
+        }.copy()
         test_id3["communicate_through"] = test_id2
         self.make_identity(id_data=test_id3)
         # Execute
@@ -235,7 +332,18 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_create_identity(self):
         # Setup
         identity1 = self.make_identity()
-        identity2 = self.make_identity(id_data=TEST_IDENTITY2)
+        identity2 = self.make_identity(id_data={
+            "details": {
+                "name": "Test Name 2",
+                "default_addr_type": "msisdn",
+                "personnel_code": "23456",
+                "addresses": {
+                    "msisdn": {
+                        "+27123": {}
+                    }
+                }
+            }
+        })
         post_identity = {
             "communicate_through": '/api/v1/identities/%s/' % identity1.id,
             "operator": '/api/v1/identities/%s/' % identity2.id,
