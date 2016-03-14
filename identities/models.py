@@ -54,7 +54,6 @@ class Identity(models.Model):
         for attribute, value in self.details.items():
             updated_details[attribute] = "removed"
         self.details = updated_details
-        self.updated_at = datetime.datetime.now()
         self.updated_by = user
         self.save()
 
