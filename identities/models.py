@@ -61,7 +61,7 @@ class Identity(models.Model):
 class OptOut(models.Model):
     """An optout"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False,
-                          help_text="UUID this optout request.")
+                          help_text="UUID of this optout request.")
     identity = models.ForeignKey(Identity, null=True,
                                  help_text="UUID for the identity opting out.")
     address_type = models.CharField(
@@ -75,8 +75,8 @@ class OptOut(models.Model):
         help_text="Service that the optout was requested from.")
     requestor_source_id = models.CharField(
         null=True, max_length=100,
-        help_text="ID for the user requesting the optout on the service that\
-        it was requested from.")
+        help_text="ID for the user requesting the optout on the service that"
+        " it was requested from.")
     created_at = models.DateTimeField(auto_now_add=True,
                                       help_text="Time request was received.")
     created_by = models.ForeignKey(User, related_name='optout_created',
