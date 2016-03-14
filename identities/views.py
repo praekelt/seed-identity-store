@@ -1,4 +1,5 @@
 from rest_framework import viewsets, generics, mixins
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_hooks.models import Hook
 from django.contrib.auth.models import User, Group
@@ -71,7 +72,21 @@ class OptOutViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     serializer_class = OptOutSerializer
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        data = serializer.validated_data
+        if "identity" not in data or data["identity"] is None:
+            filter_string = \
+                "details__addresses__" + data["address_type"] + "__has_key"
+            filter_value = data["address"]
+            identities = Identity.objects.filter(
+                **{filter_string: filter_value})
+            if len(identities) == 0:
+                raise ValidationError('There is no idenity with this address.')
+            if len(identities) > 1:
+                raise ValidationError(
+                    'There are multiple identities with this address.')
+            return serializer.save(created_by=self.request.user,
+                                   identity=identities[0])
+        return serializer.save(created_by=self.request.user)
 
 
 class HookViewSet(viewsets.ModelViewSet):

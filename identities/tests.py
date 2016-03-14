@@ -303,7 +303,7 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         self.assertEqual(d.request_source, "test_source")
         self.assertEqual(d.requestor_source_id, '1')
 
-    def test_create_opt_out_no_address(self):
+    def test_create_opt_out_no_matching_address(self):
         # Setup
         opt_out = TEST_OPTOUT
         # Execute
@@ -311,11 +311,24 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
                                     json.dumps(opt_out),
                                     content_type='application/json')
         # Check
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        d = OptOut.objects.get(id=response.data["id"])
-        self.assertEqual(d.identity, Identity.objects.all()[0])
-        self.assertEqual(d.request_source, "test_source")
-        self.assertEqual(d.requestor_source_id, '1')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.content,
+                         '["There is no idenity with this address."]')
+
+    def test_create_opt_out_multiple_matching_addresses(self):
+        # Setup
+        self.make_identity()
+        self.make_identity()
+        opt_out = TEST_OPTOUT
+        # Execute
+        response = self.client.post('/api/v1/optout/',
+                                    json.dumps(opt_out),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.content,
+            '["There are multiple identities with this address."]')
 
     def test_create_webhook(self):
         # Setup

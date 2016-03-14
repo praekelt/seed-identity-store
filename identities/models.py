@@ -91,23 +91,7 @@ def handle_optout(sender, instance, created, **kwargs):
     if created is False:
         return
 
-    if instance.identity is not None:
-        identity = instance.identity
-    else:
-        filter_string = \
-            "details__addresses__" + instance.address_type + "__has_key"
-        filter_value = instance.address
-        identities = Identity.objects.filter(**{filter_string: filter_value})
-        try:
-            identity = identities[0]
-        except IndexError:
-            identity = Identity.objects.create(details={"addresses": {
-                instance.address_type: {
-                    instance.address: {}
-                }
-            }})
-        instance.identity = identity
-        instance.save()
+    identity = instance.identity
 
     raw_hook_event.send(
         sender=None,
