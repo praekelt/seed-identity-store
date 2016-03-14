@@ -5,12 +5,12 @@ from django.conf import settings
 
 
 class DeliverHook(Task):
-    def run(self, target, payload, instance=None, hook=None, **kwargs):
+    def run(self, target, payload, instance_id=None, hook_id=None, **kwargs):
         """
         target:     the url to receive the payload.
         payload:    a python primitive data structure
-        instance:   a possibly null "trigger" instance
-        hook:       the defining Hook object
+        instance_id:   a possibly None "trigger" instance ID
+        hook_id:       the ID of defining Hook object
         """
         requests.post(
             url=target,
