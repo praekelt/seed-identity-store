@@ -63,11 +63,21 @@ class Identity(models.Model):
             if attribute != "addresses":
                 updated_details[attribute] = "redacted"
             else:
-                # leave addresses in there
-                updated_details[attribute] = value
+                updated_details[attribute] = {}
         self.details = updated_details
         self.communicate_through = None
         self.updated_by = user
+        self.save()
+
+    def optout_address(self, scope, address_type=None, address=None):
+        # for each address type (e.g. email, msisdn, etc.)
+        for cur_address_type, addresses in self.details["addresses"].items():
+            if scope == "all" or cur_address_type == address_type:
+                # for each address value (e.g. foo1@bar.com, +27123, etc.)
+                for cur_address, cur_details in addresses.items():
+                    if scope == "all" or cur_address == address:
+                        cur_details["optedout"] = True
+                        self.details["addresses"][cur_address_type][cur_address] = cur_details  # noqa
         self.save()
 
 
@@ -157,4 +167,11 @@ def handle_optout(sender, instance, created, **kwargs):
         send_hook_meta=False
     )
 
-    identity.remove_details(instance.user)
+    if instance.optout_type == "forget":
+        identity.remove_details(instance.user)
+    elif instance.optout_type == "stop":
+        identity.optout_address(scope="single",
+                                address_type=instance.address_type,
+                                address=instance.address)
+    elif instance.optout_type == "stopall":
+        identity.optout_address(scope="all")

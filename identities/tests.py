@@ -445,7 +445,8 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
             "request_source": "test_source",
             "requestor_source_id": "1",
             "address_type": "msisdn",
-            "address": "+27123"
+            "address": "+27123",
+            "optout_type": "forget"
         }
         # Execute
         response = self.client.post('/api/v1/optout/',
@@ -523,7 +524,8 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
 
         OptOut.objects.create(
             identity=identity, created_by=user, request_source="test_source",
-            requestor_source_id=1, address_type="msisdn", address="+27123")
+            requestor_source_id=1, address_type="msisdn", address="+27123",
+            optout_type="forget")
 
         self.assertEqual(responses.calls[0].request.url,
                          'http://example.com/api/v1/')
@@ -532,13 +534,87 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
             "name": "redacted",
             "default_addr_type": "redacted",
             "personnel_code": "redacted",
+            "addresses": {}
+        })
+
+    @responses.activate
+    def test_optout_webhook_stop(self):
+        # Setup
+        post_save.connect(receiver=handle_optout, sender=OptOut)
+        user = User.objects.get(username='testuser')
+        Hook.objects.create(user=user,
+                            event='optout.requested',
+                            target='http://example.com/api/v1/')
+        identity = self.make_identity()
+        payload = {
+            'details': identity.details,
+        }
+        responses.add(
+            responses.POST,
+            'http://example.com/api/v1/',
+            json.dumps(payload),
+            status=200, content_type='application/json')
+
+        OptOut.objects.create(
+            identity=identity, created_by=user, request_source="test_source",
+            requestor_source_id=1, address_type="msisdn", address="+27123",
+            optout_type="stop")
+
+        self.assertEqual(responses.calls[0].request.url,
+                         'http://example.com/api/v1/')
+        identity = Identity.objects.get(pk=identity.pk)
+        self.assertEqual(identity.details, {
+            "name": "Test Name 1",
+            "default_addr_type": "msisdn",
+            "personnel_code": "12345",
             "addresses": {
                 "msisdn": {
-                    "+27123": {}
+                    "+27123": {"optedout": True}
                 },
                 "email": {
                     "foo1@bar.com": {"default": True},
                     "foo2@bar.com": {}
+                }
+            }
+        })
+
+    @responses.activate
+    def test_optout_webhook_stop_all(self):
+        # Setup
+        post_save.connect(receiver=handle_optout, sender=OptOut)
+        user = User.objects.get(username='testuser')
+        Hook.objects.create(user=user,
+                            event='optout.requested',
+                            target='http://example.com/api/v1/')
+        identity = self.make_identity()
+        payload = {
+            'details': identity.details,
+        }
+        responses.add(
+            responses.POST,
+            'http://example.com/api/v1/',
+            json.dumps(payload),
+            status=200, content_type='application/json')
+
+        OptOut.objects.create(
+            identity=identity, created_by=user, request_source="test_source",
+            requestor_source_id=1, address_type="msisdn", address="+27123",
+            optout_type="stopall")
+
+        self.assertEqual(responses.calls[0].request.url,
+                         'http://example.com/api/v1/')
+        identity = Identity.objects.get(pk=identity.pk)
+        self.assertEqual(identity.details, {
+            "name": "Test Name 1",
+            "default_addr_type": "msisdn",
+            "personnel_code": "12345",
+            "addresses": {
+                "msisdn": {
+                    "+27123": {"optedout": True}
+                },
+                "email": {
+                    "foo1@bar.com": {"default": True, "optedout": True},
+                    "foo2@bar.com": {"optedout": True}
                 }
             }
         })
