@@ -77,7 +77,6 @@ class Identity(models.Model):
                 for cur_address, cur_details in addresses.items():
                     if scope == "all" or cur_address == address:
                         cur_details["optedout"] = True
-                        self.details["addresses"][cur_address_type][cur_address] = cur_details  # noqa
         self.save()
 
 
