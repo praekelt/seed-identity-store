@@ -30,7 +30,8 @@ class OptOutSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = OptOut
         fields = ('id', 'optout_type', 'identity', 'address_type', 'address',
-                  'request_source', 'requestor_source_id', 'created_at')
+                  'request_source', 'requestor_source_id',
+                  'reason', 'created_at')
         read_only_fields = ('created_by')
 
 

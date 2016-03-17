@@ -108,6 +108,9 @@ class OptOut(models.Model):
         null=True, max_length=500,
         help_text="ID for the user requesting the optout on the service that"
         " it was requested from. Ideally a UUID.")
+    reason = models.CharField(
+        null=True, max_length=200,
+        help_text="Optional reason (e.g. 'not interested')")
     created_at = models.DateTimeField(auto_now_add=True,
                                       help_text="Time request was received.")
     created_by = models.ForeignKey(User, related_name='optout_created',

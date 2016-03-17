@@ -407,7 +407,8 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
             "request_source": "test_source",
             "requestor_source_id": "1",
             "address_type": "msisdn",
-            "address": "+27123"
+            "address": "+27123",
+            "reason": "not good messages"
         }
         # Execute
         response = self.client.post('/api/v1/optout/',
@@ -419,6 +420,7 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         self.assertEqual(d.identity, identity)
         self.assertEqual(d.request_source, "test_source")
         self.assertEqual(d.requestor_source_id, '1')
+        self.assertEqual(d.reason, 'not good messages')
 
     def test_create_optout_no_matching_address(self):
         # Setup
