@@ -6,6 +6,8 @@ router = routers.DefaultRouter()
 router.register(r'user', views.UserViewSet)
 router.register(r'group', views.GroupViewSet)
 router.register(r'identities', views.IdentityViewSet)
+router.register(r'optout', views.OptOutViewSet)
+router.register(r'webhook', views.HookViewSet)
 
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browseable API.

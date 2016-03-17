@@ -1,9 +1,11 @@
-from rest_framework import viewsets, generics
+from rest_framework import viewsets, generics, mixins
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
+from rest_hooks.models import Hook
 from django.contrib.auth.models import User, Group
-from .models import Identity
+from .models import Identity, OptOut
 from .serializers import (UserSerializer, GroupSerializer,
-                          IdentitySerializer)
+                          IdentitySerializer, OptOutSerializer, HookSerializer)
 
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
@@ -60,3 +62,37 @@ class IdentitySearchList(generics.ListAPIView):
             filter_string += "__has_key"
         data = Identity.objects.filter(**{filter_string: filter_value})
         return data
+
+
+class OptOutViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
+    """ API endpoint that allows optouts to be created.
+    """
+    permission_classes = (IsAuthenticated,)
+    queryset = OptOut.objects.all()
+    serializer_class = OptOutSerializer
+
+    def perform_create(self, serializer):
+        data = serializer.validated_data
+        if "identity" not in data or data["identity"] is None:
+            identities = Identity.objects.filter_by_addr(
+                data["address_type"], data["address"])
+            if len(identities) == 0:
+                raise ValidationError(
+                    'There is no identity with this address.')
+            if len(identities) > 1:
+                raise ValidationError(
+                    'There are multiple identities with this address.')
+            return serializer.save(created_by=self.request.user,
+                                   identity=identities[0])
+        return serializer.save(created_by=self.request.user)
+
+
+class HookViewSet(viewsets.ModelViewSet):
+    """ Retrieve, create, update or destroy webhooks.
+    """
+    permission_classes = (IsAuthenticated,)
+    queryset = Hook.objects.all()
+    serializer_class = HookSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)

@@ -1,6 +1,7 @@
 from django.contrib.auth.models import User, Group
 from rest_framework import serializers
-from .models import Identity
+from rest_hooks.models import Hook
+from .models import Identity, OptOut
 
 
 class UserSerializer(serializers.HyperlinkedModelSerializer):
@@ -23,3 +24,18 @@ class IdentitySerializer(serializers.HyperlinkedModelSerializer):
         fields = ('id', 'version', 'details',
                   'communicate_through', 'operator',
                   'created_at', 'created_by', 'updated_at', 'updated_by')
+
+
+class OptOutSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = OptOut
+        fields = ('id', 'optout_type', 'identity', 'address_type', 'address',
+                  'request_source', 'requestor_source_id',
+                  'reason', 'created_at')
+        read_only_fields = ('created_by')
+
+
+class HookSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Hook
+        read_only_fields = ('user',)

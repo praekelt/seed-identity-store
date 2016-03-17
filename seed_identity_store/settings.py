@@ -47,6 +47,8 @@ INSTALLED_APPS = (
     'rest_framework',
     'rest_framework.authtoken',
     'django_filters',
+    'rest_hooks',
+    'djcelery',
     # us
     'identities',
 
@@ -128,6 +130,16 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_FILTER_BACKENDS': ('rest_framework.filters.DjangoFilterBackend',)
 }
+
+# Webhook event definition
+HOOK_EVENTS = {
+    # 'any.event.name': 'App.Model.Action' (created/updated/deleted)
+    'optout.requested': None
+}
+
+HOOK_DELIVERER = 'identities.tasks.deliver_hook_wrapper'
+
+HOOK_AUTH_TOKEN = os.environ.get('HOOK_AUTH_TOKEN', 'REPLACEME')
 
 # Celery configuration options
 CELERY_RESULT_BACKEND = 'djcelery.backends.database:DatabaseBackend'
