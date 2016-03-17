@@ -74,11 +74,8 @@ class OptOutViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     def perform_create(self, serializer):
         data = serializer.validated_data
         if "identity" not in data or data["identity"] is None:
-            filter_string = \
-                "details__addresses__" + data["address_type"] + "__has_key"
-            filter_value = data["address"]
-            identities = Identity.objects.filter(
-                **{filter_string: filter_value})
+            identities = Identity.objects.filter_by_addr(
+                data["address_type"], data["address"])
             if len(identities) == 0:
                 raise ValidationError(
                     'There is no identity with this address.')
