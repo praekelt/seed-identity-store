@@ -14,5 +14,7 @@ router.register(r'webhook', views.HookViewSet)
 urlpatterns = [
     url(r'^api/v1/identities/search/$',
         views.IdentitySearchList.as_view()),
+    url(r'^api/v1/identities/(?P<identity_id>.+)/addresses/(?P<address_type>.+)$',
+        views.IdentityAddresses.as_view()),
     url(r'^api/v1/', include(router.urls)),
 ]
