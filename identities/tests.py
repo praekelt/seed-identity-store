@@ -305,6 +305,83 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         self.assertEqual(len(data["results"]), 1)
         self.assertEqual(data["results"][0]["details"]["name"], "Test Name 3")
 
+    def test_read_identity_addresses_one_no_default(self):
+        # Setup
+        identity = self.make_identity(id_data={
+            "details": {
+                "name": "Test One No Default",
+                "default_addr_type": "msisdn",
+                "personnel_code": "23456",
+                "addresses": {
+                    "msisdn": {
+                        "+27124": {}
+                    }
+                }
+            }
+        })
+        # Execute
+        response = self.client.get(
+            '/api/v1/identities/%s/addresses/msisdn' % identity,
+            {"default": "True"},
+            content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(len(data["results"]), 1)
+        self.assertEqual(data["results"][0]["address"], "+27124")
+
+    def test_read_identity_addresses_two_with_default(self):
+        # Setup
+        identity = self.make_identity(id_data={
+            "details": {
+                "name": "Test One No Default",
+                "default_addr_type": "msisdn",
+                "personnel_code": "23456",
+                "addresses": {
+                    "msisdn": {
+                        "+27124": {},
+                        "+27125": {"default": True}
+                    }
+                }
+            }
+        })
+        # Execute
+        response = self.client.get(
+            '/api/v1/identities/%s/addresses/msisdn' % identity,
+            {"default": "True"},
+            content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(len(data["results"]), 1)
+        self.assertEqual(data["results"][0]["address"], "+27125")
+
+    def test_read_identity_addresses_two_with_optout(self):
+        # Setup
+        identity = self.make_identity(id_data={
+            "details": {
+                "name": "Test One No Default",
+                "default_addr_type": "msisdn",
+                "personnel_code": "23456",
+                "addresses": {
+                    "msisdn": {
+                        "+27124": {},
+                        "+27125": {"default": True, "optedout": True}
+                    }
+                }
+            }
+        })
+        # Execute
+        response = self.client.get(
+            '/api/v1/identities/%s/addresses/msisdn' % identity,
+            {"default": "True"},
+            content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        # default address is marked as optedout
+        self.assertEqual(len(data["results"]), 0)
+
     def test_update_identity(self):
         # Setup
         identity = self.make_identity()

@@ -4,7 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_hooks.models import Hook
 from django.contrib.auth.models import User, Group
 from .models import Identity, OptOut
-from .serializers import (UserSerializer, GroupSerializer,
+from .serializers import (UserSerializer, GroupSerializer, AddressSerializer,
                           IdentitySerializer, OptOutSerializer, HookSerializer)
 
 
@@ -62,6 +62,52 @@ class IdentitySearchList(generics.ListAPIView):
             filter_string += "__has_key"
         data = Identity.objects.filter(**{filter_string: filter_value})
         return data
+
+
+class Address(object):
+    def __init__(self, address):
+        self.address = address
+
+
+class IdentityAddresses(generics.ListAPIView):
+    permission_classes = (IsAuthenticated,)
+    serializer_class = AddressSerializer
+
+    def get_queryset(self):
+        """
+        This view should return a list of all the addresses the identity has
+        for the supplied query parameters.
+        Currently only supports address_type and default params
+        Always excludes addresses with optedout = True
+        """
+        identity_id = self.kwargs['identity_id']
+        address_type = self.kwargs['address_type']
+        identity = Identity.objects.get(id=identity_id)
+        response = []
+        if "addresses" in identity.details:
+            addresses = identity.details["addresses"]
+            # remove all non matching addresses types
+            for addr_type in addresses.keys():
+                if addr_type != address_type:
+                    addresses.pop(addr_type)
+            # Ignore opted out addresses and make the response and apply
+            # default filter if spec'd
+            for address_type, entries in addresses.items():
+                for address, metadata in entries.items():
+                    if "optedout" in metadata and metadata["optedout"]:
+                        break
+                    if "default" in self.request.query_params:
+                        # look for default
+                        if len(entries.keys()) > 1:
+                            # more than one address, look for default flag
+                            if "default" in metadata and metadata["default"]:
+                                response.append(Address(address=address))
+                        else:
+                            # if only one address its assumed default
+                            response.append(Address(address=address))
+                    else:
+                        response.append(Address(address=address))
+        return response
 
 
 class OptOutViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):

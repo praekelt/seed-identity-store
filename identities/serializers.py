@@ -39,3 +39,7 @@ class HookSerializer(serializers.ModelSerializer):
     class Meta:
         model = Hook
         read_only_fields = ('user',)
+
+
+class AddressSerializer(serializers.Serializer):
+    address = serializers.CharField(max_length=500)
