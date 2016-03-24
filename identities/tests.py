@@ -2,7 +2,6 @@ import json
 import responses
 
 from django.contrib.auth.models import User
-from django.core.urlresolvers import reverse
 from django.db.models.signals import post_save
 from django.test import TestCase
 from rest_framework import status
@@ -428,8 +427,8 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
             }
         })
         post_identity = {
-            "communicate_through": '/api/v1/identities/%s/' % identity1.id,
-            "operator": '/api/v1/identities/%s/' % identity2.id,
+            "communicate_through": str(identity1.id),
+            "operator": str(identity2.id),
             "details": {
                 "name": "Test Name",
                 "default_addr_type": "msisdn",
@@ -470,7 +469,7 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
             "requestor_source_id": "1",
             "address_type": "msisdn",
             "address": "+27123",
-            "identity": reverse('identity-detail', kwargs={'pk': identity.pk})
+            "identity": str(identity.id)
         }
         # Execute
         response = self.client.post('/api/v1/optout/',
