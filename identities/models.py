@@ -64,9 +64,9 @@ class Identity(models.Model):
                 'communicate_through': str(self.communicate_through),
                 'operator': str(self.operator),
                 'created_at': self.created_at.isoformat(),
-                'created_by': self.created_by,
+                'created_by': self.created_by.username,
                 'updated_at': self.updated_at.isoformat(),
-                'updated_by': self.updated_by
+                'updated_by': self.updated_by.username
             }
         }
 
