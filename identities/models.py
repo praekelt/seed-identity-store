@@ -54,6 +54,22 @@ class Identity(models.Model):
 
     objects = IdentityManager()
 
+    def serialize_hook(self, hook):
+        return {
+            'hook': hook.dict(),
+            'data': {
+                'id': str(self.id),
+                'version': self.version,
+                'details': self.details,
+                'communicate_through': str(self.communicate_through),
+                'operator': str(self.operator),
+                'created_at': self.created_at.isoformat(),
+                'created_by': self.created_by,
+                'updated_at': self.updated_at.isoformat(),
+                'updated_by': self.updated_by
+            }
+        }
+
     def __str__(self):
         return str(self.id)
 

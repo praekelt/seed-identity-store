@@ -134,7 +134,8 @@ REST_FRAMEWORK = {
 # Webhook event definition
 HOOK_EVENTS = {
     # 'any.event.name': 'App.Model.Action' (created/updated/deleted)
-    'optout.requested': None
+    'optout.requested': None,
+    'identity.created': 'identities.Identity.created+'
 }
 
 HOOK_DELIVERER = 'identities.tasks.deliver_hook_wrapper'
