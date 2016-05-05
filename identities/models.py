@@ -96,6 +96,7 @@ class Identity(models.Model):
         self.save()
 
 
+@python_2_unicode_compatible
 class OptOut(models.Model):
     """An optout"""
     OPTOUT_TYPE_CHOICES = (
@@ -134,6 +135,9 @@ class OptOut(models.Model):
                                    help_text="User creating the OptOut")
 
     user = property(lambda self: self.created_by)
+
+    def __str__(self):
+        return str(self.id)
 
     def clean(self):
         """
@@ -193,3 +197,13 @@ def handle_optout(sender, instance, created, **kwargs):
                                 address=instance.address)
     elif instance.optout_type == "stopall":
         identity.optout_address(scope="all")
+
+
+@receiver(post_save, sender=Identity)
+def fire_metrics_if_new(sender, instance, created, **kwargs):
+    from .tasks import fire_metric
+    if created:
+        fire_metric.apply_async(kwargs={
+            "metric_name": 'identities.created.sum',
+            "metric_value": 1.0
+        })
