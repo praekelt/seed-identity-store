@@ -136,6 +136,9 @@ class OptOut(models.Model):
 
     user = property(lambda self: self.created_by)
 
+    def __str__(self):
+        return str(self.id)
+
     def clean(self):
         """
         Don't allow optouts for non existant addresses or ambiguous ones
