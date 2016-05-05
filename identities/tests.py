@@ -17,8 +17,7 @@ from rest_hooks.models import Hook
 from requests_testadapter import TestAdapter, TestSession
 from go_http.metrics import MetricsApiClient
 
-from .models import (Identity, OptOut, handle_optout, fire_metrics_if_new,
-                     optout_saved)
+from .models import Identity, OptOut, handle_optout, fire_metrics_if_new
 from .tasks import deliver_hook_wrapper, fire_metric
 from . import tasks
 
