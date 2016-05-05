@@ -163,9 +163,29 @@ CELERY_IMPORTS = (
 )
 
 CELERY_CREATE_MISSING_QUEUES = True
+CELERY_ROUTES = {
+    # cleanup necessary? see http://docs.celeryproject.org/en/latest/configuration.html#celery-ignore-result
+    'celery.backend_cleanup': {
+        'queue': 'mediumpriority',
+    },
+    # add deliver_hook?
+    'identities.tasks.fire_metric': {
+        'queue': 'metrics',
+    },
+}
+
+METRICS_REALTIME = [
+    'subscriptions.created.sum'
+]
+METRICS_SCHEDULED = [
+]
 
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_ACCEPT_CONTENT = ['json']
+CELERY_IGNORE_RESULT = True
 
 djcelery.setup_loader()
+
+METRICS_URL = os.environ.get("METRICS_URL", None)
+METRICS_AUTH_TOKEN = os.environ.get("METRICS_AUTH_TOKEN", "REPLACEME")
