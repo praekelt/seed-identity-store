@@ -165,6 +165,6 @@ class MetricsView(APIView):
 
     def post(self, request, *args, **kwargs):
         status = 201
-        # scheduled_metrics.apply_async()
+        # scheduled_metrics.apply_async()  TODO #22
         resp = {"scheduled_metrics_initiated": True}
         return Response(resp, status=status)
