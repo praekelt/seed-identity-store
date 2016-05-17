@@ -4,6 +4,7 @@ import requests
 from celery.task import Task
 from django.conf import settings
 from go_http.metrics import MetricsApiClient
+from .models import Identity
 
 
 class DeliverHook(Task):
@@ -61,3 +62,37 @@ class FireMetric(Task):
             metric_name, metric_value)
 
 fire_metric = FireMetric()
+
+
+class ScheduledMetrics(Task):
+
+    """ Fires off tasks for all the metrics that should run
+        on a schedule
+    """
+    name = "seed_stage_based_messaging.subscriptions.tasks.scheduled_metrics"
+
+    def run(self, **kwargs):
+        globs = globals()  # execute globals() outside for loop for efficiency
+        for metric in settings.METRICS_SCHEDULED_TASKS:
+            globs[metric].apply_async()
+
+        return "%d Scheduled metrics launched" % len(
+            settings.METRICS_SCHEDULED_TASKS)
+
+scheduled_metrics = ScheduledMetrics()
+
+
+class FireCreatedLast(Task):
+
+    """ Fires last created subscriptions count
+    """
+    name = "seed_stage_based_messaging.subscriptions.tasks.fire_created_last"
+
+    def run(self):
+        created_identities = Identity.objects.all().count()
+        return fire_metric.apply_async(kwargs={
+            "metric_name": 'identities.created.last',
+            "metric_value": created_identities
+        })
+
+fire_created_last = FireCreatedLast()

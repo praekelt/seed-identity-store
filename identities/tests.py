@@ -18,7 +18,7 @@ from requests_testadapter import TestAdapter, TestSession
 from go_http.metrics import MetricsApiClient
 
 from .models import Identity, OptOut, handle_optout, fire_metrics_if_new
-from .tasks import deliver_hook_wrapper, fire_metric
+from .tasks import deliver_hook_wrapper, fire_metric, scheduled_metrics
 from . import tasks
 
 
@@ -763,6 +763,7 @@ class TestMetricsAPI(AuthenticatedAPITestCase):
         self.assertEqual(
             response.data["metrics_available"], [
                 'identities.created.sum',
+                'identities.created.last',
             ]
         )
 
@@ -844,3 +845,63 @@ class TestMetrics(AuthenticatedAPITestCase):
         )
         # remove post_save hooks to prevent teardown errors
         post_save.disconnect(fire_metrics_if_new, sender=Identity)
+
+    @responses.activate
+    def test_multiple_created_metrics(self):
+        # Setup
+        # deactivate Testsession for this test
+        self.session = None
+        # reconnect metric post_save hook
+        post_save.connect(fire_metrics_if_new, sender=Identity)
+        # add metric post response
+        responses.add(responses.POST,
+                      "http://metrics-url/metrics/",
+                      json={"foo": "bar"},
+                      status=200, content_type='application/json')
+
+        # Execute
+        self.make_identity()
+        self.make_identity()
+
+        # Check
+        self.assertEqual(len(responses.calls), 2)
+        # remove post_save hooks to prevent teardown errors
+        post_save.disconnect(fire_metrics_if_new, sender=Identity)
+
+    @responses.activate
+    def test_scheduled_metrics(self):
+        # Setup
+        # deactivate Testsession for this test
+        self.session = None
+        # add metric post response
+        responses.add(responses.POST,
+                      "http://metrics-url/metrics/",
+                      json={"foo": "bar"},
+                      status=200, content_type='application/json')
+
+        # Execute
+        result = scheduled_metrics.apply_async()
+        # Check
+        self.assertEqual(result.get(), "1 Scheduled metrics launched")
+        # fire_messagesets_tasks fires two metrics, therefore extra call
+        self.assertEqual(len(responses.calls), 1)
+
+    def test_fire_created_last(self):
+        # Setup
+        adapter = self._mount_session()
+        # make two identities
+        self.make_identity()
+        self.make_identity()
+
+        # Execute
+        result = tasks.fire_created_last.apply_async()
+
+        # Check
+        self.assertEqual(
+            result.get().get(),
+            "Fired metric <identities.created.last> with value <2.0>"
+        )
+        self.check_request(
+            adapter.request, 'POST',
+            data={"identities.created.last": 2.0}
+        )
