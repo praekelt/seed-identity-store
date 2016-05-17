@@ -1,11 +1,15 @@
 from rest_framework import viewsets, generics, mixins
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from rest_hooks.models import Hook
 from django.contrib.auth.models import User, Group
 from .models import Identity, OptOut
 from .serializers import (UserSerializer, GroupSerializer, AddressSerializer,
                           IdentitySerializer, OptOutSerializer, HookSerializer)
+from seed_identity_store.utils import get_available_metrics
+# from .tasks import scheduled_metrics
 
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
@@ -142,3 +146,25 @@ class HookViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class MetricsView(APIView):
+
+    """ Metrics Interaction
+        GET - returns list of all available metrics on the service
+        POST - starts up the task that fires all the scheduled metrics
+    """
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        status = 200
+        resp = {
+            "metrics_available": get_available_metrics()
+        }
+        return Response(resp, status=status)
+
+    def post(self, request, *args, **kwargs):
+        status = 201
+        # scheduled_metrics.apply_async()  TODO #22
+        resp = {"scheduled_metrics_initiated": True}
+        return Response(resp, status=status)
