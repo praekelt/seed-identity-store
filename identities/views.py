@@ -9,7 +9,7 @@ from .models import Identity, OptOut
 from .serializers import (UserSerializer, GroupSerializer, AddressSerializer,
                           IdentitySerializer, OptOutSerializer, HookSerializer)
 from seed_identity_store.utils import get_available_metrics
-# from .tasks import scheduled_metrics
+from .tasks import scheduled_metrics
 
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
@@ -165,6 +165,6 @@ class MetricsView(APIView):
 
     def post(self, request, *args, **kwargs):
         status = 201
-        # scheduled_metrics.apply_async()  TODO #22
+        scheduled_metrics.apply_async()
         resp = {"scheduled_metrics_initiated": True}
         return Response(resp, status=status)

@@ -173,14 +173,22 @@ CELERY_ROUTES = {
     'identities.tasks.fire_metric': {
         'queue': 'metrics',
     },
+    'identities.tasks.scheduled_metrics': {
+        'queue': 'metrics',
+    },
+    'identities.tasks.fire_active_last': {
+        'queue': 'metrics',
+    },
 }
 
 METRICS_REALTIME = [
     'identities.created.sum'
 ]
 METRICS_SCHEDULED = [
+    'identities.created.last'
 ]
 METRICS_SCHEDULED_TASKS = [
+    'fire_created_last'
 ]
 
 CELERY_TASK_SERIALIZER = 'json'
