@@ -40,11 +40,13 @@ class IdentityFilter(filters.FilterSet):
                                                     lookup_type="gte")
     updated_to = django_filters.IsoDateTimeFilter(name="updated_at",
                                                   lookup_type="lte")
+    optout_type = django_filters.CharFilter(name="optout__optout_type")
 
     class Meta:
         model = Identity
         fields = ['details', 'communicate_through', 'operator',
-                  'created_at', 'created_by', 'updated_at', 'updated_by']
+                  'created_at', 'created_by', 'updated_at', 'updated_by',
+                  'optout__optout_type']
 
 
 class IdentityViewSet(viewsets.ModelViewSet):
