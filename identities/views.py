@@ -3,6 +3,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import filters
 from rest_hooks.models import Hook
 from django.contrib.auth.models import User, Group
 from .models import Identity, OptOut
@@ -10,6 +11,7 @@ from .serializers import (UserSerializer, GroupSerializer, AddressSerializer,
                           IdentitySerializer, OptOutSerializer, HookSerializer)
 from seed_identity_store.utils import get_available_metrics
 from .tasks import scheduled_metrics
+import django_filters
 
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
@@ -28,14 +30,30 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = GroupSerializer
 
 
+class IdentityFilter(filters.FilterSet):
+    """Filter for identities created, using ISO 8601 formatted dates"""
+    created_from = django_filters.IsoDateTimeFilter(name="created_at",
+                                                    lookup_type="gte")
+    created_to = django_filters.IsoDateTimeFilter(name="created_at",
+                                                  lookup_type="lte")
+    updated_from = django_filters.IsoDateTimeFilter(name="updated_at",
+                                                    lookup_type="gte")
+    updated_to = django_filters.IsoDateTimeFilter(name="updated_at",
+                                                  lookup_type="lte")
+
+    class Meta:
+        model = Identity
+        fields = ['details', 'communicate_through', 'operator',
+                  'created_at', 'created_by', 'updated_at', 'updated_by']
+
+
 class IdentityViewSet(viewsets.ModelViewSet):
     """ API endpoint that allows identities to be viewed or edited.
     """
     permission_classes = (IsAuthenticated,)
     queryset = Identity.objects.all()
     serializer_class = IdentitySerializer
-    filter_fields = ('details', 'communicate_through', 'operator',
-                     'created_at', 'created_by', 'updated_at', 'updated_by')
+    filter_class = IdentityFilter
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user,
