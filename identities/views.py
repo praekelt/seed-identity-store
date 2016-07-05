@@ -34,9 +34,9 @@ class IdentityViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticated,)
     queryset = Identity.objects.all()
     serializer_class = IdentitySerializer
-    filter_fields = ('details',)
+    filter_fields = ('details', 'communicate_through', 'operator',
+                     'created_at', 'created_by', 'updated_at', 'updated_by')
 
-    # TODO make this work in test harness, works in production
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user,
                         updated_by=self.request.user)
