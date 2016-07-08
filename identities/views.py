@@ -46,7 +46,7 @@ class IdentityFilter(filters.FilterSet):
         model = Identity
         fields = ['details', 'communicate_through', 'operator',
                   'created_at', 'created_by', 'updated_at', 'updated_by',
-                  'optout__optout_type']
+                  'optout_type']
 
 
 class IdentityViewSet(viewsets.ModelViewSet):
