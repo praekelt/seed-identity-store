@@ -506,6 +506,98 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         d = Identity.objects.last()
         self.assertEqual(d.version, 1)
 
+    def test_identity_filter_optout_type_multiple_matches(self):
+        # Setup
+        identity = self.make_identity(id_data={
+            "details": {
+                "name": "Test Name 1",
+                "addresses": {
+                    "msisdn": {
+                        "+27123": {}
+                    }
+                }
+            }
+        })
+        identity2 = self.make_identity(id_data={
+            "details": {
+                "name": "Test Name 2",
+                "addresses": {
+                    "msisdn": {
+                        "+27555": {}
+                    }
+                }
+            }
+        })
+        identity3 = self.make_identity(id_data={
+            "details": {
+                "name": "Test Name 3",
+                "addresses": {
+                    "msisdn": {
+                        "+27455": {}
+                    }
+                }
+            }
+        })
+        OptOut.objects.create(
+            identity=identity, request_source="test_source",
+            requestor_source_id=1, address_type="msisdn", address="+27123",
+            optout_type="stopall")
+        OptOut.objects.create(
+            identity=identity2, request_source="test_source",
+            requestor_source_id=1, address_type="msisdn", address="+27555",
+            optout_type="stopall")
+        OptOut.objects.create(
+            identity=identity3, request_source="test_source",
+            requestor_source_id=1, address_type="msisdn", address="+27455",
+            optout_type="forget")
+        # Execute
+        response = self.client.get('/api/v1/identities/',
+                                   {"optout_type": "stopall"},
+                                   content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(len(data["results"]), 2)
+        self.assertEqual(data["results"][0]["details"]["name"], "Test Name 1")
+        self.assertEqual(data["results"][1]["details"]["name"], "Test Name 2")
+
+    def test_identity_filter_optout_type_no_match(self):
+        # Setup
+        identity = self.make_identity(id_data={
+            "details": {
+                "name": "Test Name 2",
+                "default_addr_type": "msisdn",
+                "addresses": {
+                    "msisdn": {
+                        "+27123": {}
+                    }
+                }
+            }
+        })
+        self.make_identity(id_data={
+            "version": 2,
+            "details": {
+                "name": "Test Name 3",
+                "addresses": {
+                    "msisdn": {
+                        "+27555": {}
+                    }
+                }
+            }
+        })
+        OptOut.objects.create(
+            identity=identity, request_source="test_source",
+            requestor_source_id=1, address_type="msisdn", address="+27123",
+            optout_type="stopall")
+        # Execute
+        response = self.client.get('/api/v1/identities/',
+                                   {"optout_type": "forget"},
+                                   content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(len(data["results"]), 0)
+
 
 class TestOptOutAPI(AuthenticatedAPITestCase):
     def test_create_optout_with_identity(self):
