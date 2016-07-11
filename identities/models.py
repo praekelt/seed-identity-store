@@ -183,7 +183,8 @@ def handle_optout(sender, instance, created, **kwargs):
         sender=None,
         event_name='optout.requested',
         payload={
-            'details': identity.details,
+            'identity_id': str(identity.id),
+            'identity_details': identity.details,
             'optout_type': instance.optout_type,
         },
         user=instance.user,
