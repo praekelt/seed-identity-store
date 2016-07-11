@@ -621,7 +621,8 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
                         "+27123": {}
                     }
                 }
-            }
+            },
+            "optout_type": "forget"
         }
         responses.add(
             responses.POST,
@@ -646,6 +647,7 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         identity = self.make_identity()
         payload = {
             'details': identity.details,
+            'optout_type': "forget",
         }
         responses.add(
             responses.POST,
@@ -679,6 +681,7 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         identity = self.make_identity()
         payload = {
             'details': identity.details,
+            'optout_type': "stop",
         }
         responses.add(
             responses.POST,
@@ -720,6 +723,7 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         identity = self.make_identity()
         payload = {
             'details': identity.details,
+            'optout_type': "stopall",
         }
         responses.add(
             responses.POST,
