@@ -615,7 +615,8 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
             event='optout.requested',
             target='http://example.com/api/v1/')
         payload = {
-            "details": {
+            "identity": "test-219f0f88-7d2b-414d-933c-1f8e652869c4",
+            "identity_details": {
                 "addresses": {
                     "msisdn": {
                         "+27123": {}
@@ -646,7 +647,8 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
                             target='http://example.com/api/v1/')
         identity = self.make_identity()
         payload = {
-            'details': identity.details,
+            "identity": str(identity.id),
+            "identity_details": identity.details,
             'optout_type': "forget",
         }
         responses.add(
@@ -680,7 +682,8 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
                             target='http://example.com/api/v1/')
         identity = self.make_identity()
         payload = {
-            'details': identity.details,
+            "identity": str(identity.id),
+            "identity_details": identity.details,
             'optout_type': "stop",
         }
         responses.add(
@@ -722,7 +725,8 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
                             target='http://example.com/api/v1/')
         identity = self.make_identity()
         payload = {
-            'details': identity.details,
+            "identity": str(identity.id),
+            "identity_details": identity.details,
             'optout_type': "stopall",
         }
         responses.add(
