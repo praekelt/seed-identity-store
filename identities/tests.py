@@ -725,7 +725,7 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
                             target='http://example.com/api/v1/')
         identity = self.make_identity()
         payload = {
-            "identity_id": str(identity.id),
+            "identity": str(identity.id),
             "identity_details": identity.details,
             'optout_type': "stopall",
         }
