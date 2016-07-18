@@ -167,7 +167,7 @@ CELERY_ROUTES = {
     'celery.backend_cleanup': {
         'queue': 'mediumpriority',
     },
-    'identities.tasks.deliver_hook_wrapper': {
+    'identities.tasks.DeliverHook': {
         'queue': 'priority',
     },
     'identities.tasks.fire_metric': {
