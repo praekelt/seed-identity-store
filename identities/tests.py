@@ -832,6 +832,19 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         })
 
 
+class TestHealthcheckAPI(AuthenticatedAPITestCase):
+
+    def test_healthcheck_read(self):
+        # Setup
+        # Execute
+        response = self.client.get('/api/health/',
+                                   content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["up"], True)
+        self.assertEqual(response.data["result"]["database"], "Accessible")
+
+
 class TestMetricsAPI(AuthenticatedAPITestCase):
 
     def test_metrics_read(self):

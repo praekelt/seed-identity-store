@@ -211,3 +211,21 @@ class MetricsView(APIView):
         scheduled_metrics.apply_async()
         resp = {"scheduled_metrics_initiated": True}
         return Response(resp, status=status)
+
+
+class HealthcheckView(APIView):
+
+    """ Healthcheck Interaction
+        GET - returns service up - getting auth'd requires DB
+    """
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        status = 200
+        resp = {
+            "up": True,
+            "result": {
+                "database": "Accessible"
+            }
+        }
+        return Response(resp, status=status)
