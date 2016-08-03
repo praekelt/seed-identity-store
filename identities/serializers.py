@@ -16,6 +16,10 @@ class GroupSerializer(serializers.ModelSerializer):
         fields = ('url', 'name')
 
 
+class CreateUserSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
 class IdentitySerializer(serializers.ModelSerializer):
     class Meta:
         model = Identity
