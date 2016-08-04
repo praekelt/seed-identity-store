@@ -16,5 +16,7 @@ urlpatterns = [
         views.IdentitySearchList.as_view()),
     url(r'^api/v1/identities/(?P<identity_id>.+)/addresses/(?P<address_type>.+)$',  # noqa
         views.IdentityAddresses.as_view()),
+    url(r'^api/v1/user/token/$', views.UserView.as_view(),
+        name='create-user-token'),
     url(r'^api/v1/', include(router.urls)),
 ]
