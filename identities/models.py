@@ -157,6 +157,19 @@ class OptOut(models.Model):
                     "Please use an explict identity.")
 
 
+@python_2_unicode_compatible
+class DetailKey(models.Model):
+    """
+    This is a list of all unique keys in the details column of the Identity
+    model. Used to help build filters. Populated by post_save triggers.
+    """
+    key_name = models.CharField(null=False, max_length=200, primary_key=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return str(self.key_name)
+
+
 @receiver(pre_save, sender=OptOut)
 def optout_saved(sender, instance, **kwargs):
     """
@@ -208,4 +221,13 @@ def fire_metrics_if_new(sender, instance, created, **kwargs):
         fire_metric.apply_async(kwargs={
             "metric_name": 'identities.created.sum',
             "metric_value": 1.0
+        })
+
+
+@receiver(post_save, sender=Identity)
+def fire_detailkeys_if_new(sender, instance, created, **kwargs):
+    from .tasks import populate_detail_key
+    if created and instance.details is not None:
+        populate_detail_key.apply_async(kwargs={
+            "key_names": instance.details.keys()
         })

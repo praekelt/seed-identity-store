@@ -17,7 +17,8 @@ from rest_hooks.models import Hook
 from requests_testadapter import TestAdapter, TestSession
 from go_http.metrics import MetricsApiClient
 
-from .models import Identity, OptOut, handle_optout, fire_metrics_if_new
+from .models import (Identity, OptOut, DetailKey, handle_optout,
+                     fire_metrics_if_new)
 from .tasks import deliver_hook_wrapper, fire_metric, scheduled_metrics
 from . import tasks
 
@@ -578,6 +579,42 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         d = Identity.objects.last()
         self.assertEqual(d.version, 1)
+
+    def test_create_identity_detailkeys(self):
+        # Setup
+        self.make_identity()
+
+        # Check
+        c = DetailKey.objects.all().count()
+        self.assertEqual(c, 4)
+
+    def test_create_identity_detailkeys_two_new(self):
+        # Setup
+        self.make_identity()
+        self.make_identity(id_data={
+            "details": {
+                "fresh": "as",
+                "default_addr_type": "msisdn",
+                "a": "daisy"
+            }
+        })
+
+        # Check
+        c = DetailKey.objects.all().count()
+        self.assertEqual(c, 6)
+
+    def test_identity_detailkeys_view(self):
+        # Setup
+        self.make_identity()
+
+        # Execute
+        response = self.client.get('/api/v1/detailkeys/',
+                                   content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(len(data["key_names"]), 4)
+        self.assertEqual("default_addr_type" in data["key_names"], True)
 
 
 class TestOptOutAPI(AuthenticatedAPITestCase):

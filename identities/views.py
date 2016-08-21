@@ -7,7 +7,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework import filters
 from rest_hooks.models import Hook
 from django.contrib.auth.models import User, Group
-from .models import Identity, OptOut
+from .models import Identity, OptOut, DetailKey
 from .serializers import (UserSerializer, GroupSerializer, AddressSerializer,
                           IdentitySerializer, OptOutSerializer, HookSerializer,
                           CreateUserSerializer)
@@ -227,5 +227,21 @@ class HealthcheckView(APIView):
             "result": {
                 "database": "Accessible"
             }
+        }
+        return Response(resp, status=status)
+
+
+class DetailKeyView(APIView):
+
+    """ DetailKey retrival for filter views
+        GET - returns list of all available key_names in DetailKey model
+    """
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+        status = 200
+        key_names = DetailKey.objects.values_list('key_name', flat=True)
+        resp = {
+            "key_names": key_names
         }
         return Response(resp, status=status)

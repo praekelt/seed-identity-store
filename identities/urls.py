@@ -18,5 +18,6 @@ urlpatterns = [
         views.IdentityAddresses.as_view()),
     url(r'^api/v1/user/token/$', views.UserView.as_view(),
         name='create-user-token'),
+    url(r'^api/v1/detailkeys/', views.DetailKeyView.as_view()),
     url(r'^api/v1/', include(router.urls)),
 ]

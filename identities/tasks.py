@@ -4,7 +4,7 @@ import requests
 from celery.task import Task
 from django.conf import settings
 from go_http.metrics import MetricsApiClient
-from .models import Identity
+from .models import Identity, DetailKey
 
 
 class DeliverHook(Task):
@@ -96,3 +96,20 @@ class FireCreatedLast(Task):
         })
 
 fire_created_last = FireCreatedLast()
+
+
+class PopulateDetailKey(Task):
+
+    """ Fires last created subscriptions count
+    """
+    name = "seed_identity_store.identities.tasks.populate_detail_key"
+
+    def run(self, key_names):
+        existing_keys = DetailKey.objects.values_list('key_name', flat=True)
+        # get key_names NOT in existing_keys
+        new_items = [n for n in key_names if n not in existing_keys]
+        for i in new_items:
+            DetailKey.objects.create(key_name=i)
+        return "Added <%s> new DetailKey records" % len(new_items)
+
+populate_detail_key = PopulateDetailKey()
