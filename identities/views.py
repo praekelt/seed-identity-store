@@ -233,7 +233,7 @@ class HealthcheckView(APIView):
 
 class DetailKeyView(APIView):
 
-    """ DetailKey retrival for filter views
+    """ DetailKey retrieval for filter views
         GET - returns list of all available key_names in DetailKey model
     """
     permission_classes = (IsAuthenticated,)
