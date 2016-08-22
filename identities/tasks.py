@@ -69,7 +69,7 @@ class ScheduledMetrics(Task):
     """ Fires off tasks for all the metrics that should run
         on a schedule
     """
-    name = "seed_stage_based_messaging.subscriptions.tasks.scheduled_metrics"
+    name = "seed_identity_store.subscriptions.tasks.scheduled_metrics"
 
     def run(self, **kwargs):
         globs = globals()  # execute globals() outside for loop for efficiency
@@ -86,7 +86,7 @@ class FireCreatedLast(Task):
 
     """ Fires last created subscriptions count
     """
-    name = "seed_stage_based_messaging.subscriptions.tasks.fire_created_last"
+    name = "seed_identity_store.subscriptions.tasks.fire_created_last"
 
     def run(self):
         created_identities = Identity.objects.all().count()
