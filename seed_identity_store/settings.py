@@ -179,6 +179,9 @@ CELERY_ROUTES = {
     'identities.tasks.fire_active_last': {
         'queue': 'metrics',
     },
+    'identities.tasks.populate_detail_key': {
+        'queue': 'priority'
+    }
 }
 
 METRICS_REALTIME = [
