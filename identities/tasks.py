@@ -56,10 +56,14 @@ class FireMetric(Task):
         metric = {
             metric_name: metric_value
         }
-        metric_client = get_metric_client(session=session)
-        metric_client.fire(metric)
-        return "Fired metric <%s> with value <%s>" % (
-            metric_name, metric_value)
+        try:
+            metric_client = get_metric_client(session=session)
+            metric_client.fire(metric)
+            return "Fired metric <%s> with value <%s>" % (
+                metric_name, metric_value)
+        except (requests.exceptions.HTTPError,) as e:
+            return "Failed to fire metric <%s> with value <%s> because %s" % (
+                metric_name, metric_value, e)
 
 fire_metric = FireMetric()
 
