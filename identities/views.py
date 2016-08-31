@@ -115,7 +115,7 @@ class IdentitySearchList(generics.ListAPIView):
 
         if "include_inactive" in query_params:
             include_inactive = (self.request.query_params["include_inactive"]
-                                not in ["False", False])
+                                not in ["False", 'false', False])
         else:
             include_inactive = True  # default to True
 
