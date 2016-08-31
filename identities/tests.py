@@ -207,7 +207,7 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         self.assertEqual(d.details["name"], "Test Name 1")
         self.assertEqual(d.version, 1)
 
-    def test_read_identity_search_single(self):
+    def test_read_identity_search_msisdn_single(self):
         # Setup
         self.make_identity()
         self.make_identity(id_data={
@@ -243,7 +243,7 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         self.assertEqual(len(data["results"]), 1)
         self.assertEqual(data["results"][0]["details"]["name"], "Test Name 3")
 
-    def test_read_identity_search_multiple(self):
+    def test_read_identity_search_msisdn_multiple(self):
         # Setup
         self.make_identity()
         self.make_identity(id_data={
@@ -278,6 +278,59 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         data = response.json()
         self.assertEqual(len(data["results"]), 2)
 
+    def test_read_identity_search_msisdn_inactive_filter(self):
+        # Setup
+        self.make_identity(id_data={
+            "details": {
+                "name": "Test Name 2",
+                "default_addr_type": "msisdn",
+                "personnel_code": "23456",
+                "addresses": {
+                    "msisdn": {
+                        "+27123": {"default": True, "inactive": True}
+                    }
+                }
+            }
+        })
+        self.make_identity(id_data={
+            "version": 2,
+            "details": {
+                "name": "Test Name 4",
+                "addresses": {
+                    "msisdn": {
+                        "+27123": {}
+                    }
+                }
+            }
+        })
+        # Execute
+        response_include_inactive = self.client.get(
+            '/api/v1/identities/search/',
+            {
+                "details__addresses__msisdn": "+27123",
+                "include_inactive": True
+            },
+            content_type='application/json')
+        response_exclude_inactive = self.client.get(
+            '/api/v1/identities/search/',
+            {
+                "details__addresses__msisdn": "+27123",
+                "include_inactive": False
+            },
+            content_type='application/json')
+        # Check
+        self.assertEqual(response_include_inactive.status_code,
+                         status.HTTP_200_OK)
+        data_include = response_include_inactive.json()
+        self.assertEqual(len(data_include["results"]), 2)
+
+        self.assertEqual(response_exclude_inactive.status_code,
+                         status.HTTP_200_OK)
+        data_exclude = response_exclude_inactive.json()
+        self.assertEqual(len(data_exclude["results"]), 1)
+        self.assertEqual(data_exclude["results"][0]["details"]["name"],
+                         "Test Name 4")
+
     def test_read_identity_search_email(self):
         # Setup
         self.make_identity()
@@ -307,13 +360,146 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         # Execute
         response = self.client.get(
             '/api/v1/identities/search/',
-            {"details__addresses__email": "foo1@bar.com"},
+            {
+                "details__addresses__email": "foo1@bar.com",
+                "version": 1,
+                "include_inactive": True
+            },
             content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
         self.assertEqual(len(data["results"]), 1)
         self.assertEqual(data["results"][0]["details"]["name"], "Test Name 1")
+
+    def test_read_identity_search_msisdn_email_inactive_filter(self):
+        # Setup
+        self.make_identity(id_data={
+            "details": {
+                "name": "Test Name 2",
+                "default_addr_type": "msisdn",
+                "personnel_code": "23456",
+                "addresses": {
+                    "email": {
+                        "foo@bar.com": {"default": True, "inactive": True}
+                    }
+                }
+            }
+        })
+        self.make_identity(id_data={
+            "version": 2,
+            "details": {
+                "name": "Test Name 4",
+                "addresses": {
+                    "email": {
+                        "foo@bar.com": {}
+                    }
+                }
+            }
+        })
+        # Execute
+        response_include_inactive = self.client.get(
+            '/api/v1/identities/search/',
+            {
+                "details__addresses__email": "foo@bar.com",
+                "include_inactive": True
+            },
+            content_type='application/json')
+        response_exclude_inactive = self.client.get(
+            '/api/v1/identities/search/',
+            {
+                "details__addresses__email": "foo@bar.com",
+                "include_inactive": False
+            },
+            content_type='application/json')
+        # Check
+        self.assertEqual(response_include_inactive.status_code,
+                         status.HTTP_200_OK)
+        data_include = response_include_inactive.json()
+        self.assertEqual(len(data_include["results"]), 2)
+
+        self.assertEqual(response_exclude_inactive.status_code,
+                         status.HTTP_200_OK)
+        data_exclude = response_exclude_inactive.json()
+        self.assertEqual(len(data_exclude["results"]), 1)
+        self.assertEqual(data_exclude["results"][0]["details"]["name"],
+                         "Test Name 4")
+
+    def test_read_identity_search_msisdn_email_and_msisdn(self):
+        # Setup
+        self.make_identity()
+        self.make_identity(id_data={
+            "details": {
+                "name": "Test Name 2",
+                "default_addr_type": "msisdn",
+                "personnel_code": "23456",
+                "addresses": {
+                    "email": {
+                        "foo@bar.com": {"default": True, "inactive": True}
+                    },
+                    "msisdn": {
+                        "+27123": {"default": True}
+                    }
+                }
+            }
+        })
+        self.make_identity(id_data={
+            "version": 2,
+            "details": {
+                "name": "Test Name 4",
+                "addresses": {
+                    "email": {
+                        "foo@bar.com": {}
+                    },
+                    "msisdn": {
+                        "+27123": {}
+                    }
+                }
+            }
+        })
+        self.make_identity(id_data={
+            "version": 2,
+            "details": {
+                "name": "Test Name 5",
+                "addresses": {
+                    "email": {
+                        "foo@bar.com": {}
+                    },
+                    "msisdn": {
+                        "+27123": {"inactive": True}
+                    }
+                }
+            }
+        })
+        # Execute
+        response_include_inactive = self.client.get(
+            '/api/v1/identities/search/',
+            {
+                "details__addresses__email": "foo@bar.com",
+                "details__addresses__msisdn": "+27123",
+                "include_inactive": True
+            },
+            content_type='application/json')
+        response_exclude_inactive = self.client.get(
+            '/api/v1/identities/search/',
+            {
+                "details__addresses__email": "foo@bar.com",
+                "details__addresses__msisdn": "+27123",
+                "include_inactive": False
+            },
+            content_type='application/json')
+        # Check
+        self.assertEqual(response_include_inactive.status_code,
+                         status.HTTP_200_OK)
+        data_include = response_include_inactive.json()
+        self.assertEqual(len(data_include["results"]), 3)
+
+        self.assertEqual(response_exclude_inactive.status_code,
+                         status.HTTP_200_OK)
+        data_exclude = response_exclude_inactive.json()
+        self.assertEqual(len(data_exclude["results"]), 1)
+        self.assertEqual(data_exclude["results"][0]["details"]["name"],
+                         "Test Name 4")
 
     def test_read_identity_search_personnel_code(self):
         # Setup

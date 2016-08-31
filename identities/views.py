@@ -101,14 +101,54 @@ class IdentitySearchList(generics.ListAPIView):
         e.g.
         {"msisdn": "+27123"}
         {"email": "foo@bar.com"}
+
+        A special query paramater "include_inactive" can also be passed
+        as False to prevent returning identities for which the addresses
+        have been set to "inactive"
+        e.g.
+        {"include_inactive": False}
         """
-        # query_field = list(self.request.query_params.keys())[0]
-        filter_string = str(list(self.request.query_params.keys())[0])
-        filter_value = self.request.query_params[filter_string]
-        if filter_string.startswith("details__addresses__"):
-            filter_string += "__has_key"
-        data = Identity.objects.filter(**{filter_string: filter_value})
-        return data
+        query_params = list(self.request.query_params.keys())
+
+        filter_params = {}
+        exclude_inactive = []
+
+        if "include_inactive" in query_params:
+            include_inactive = (self.request.query_params["include_inactive"]
+                                not in ["False", False])
+        else:
+            include_inactive = True  # default to True
+
+        for filter in query_params:
+            if filter == "include_inactive":
+                pass  # don't add it to the filter params
+            elif filter.startswith("details__addresses__"):
+                filter_params[filter + "__has_key"] = \
+                    self.request.query_params[filter]
+
+                if include_inactive is False:
+                    exclude_inactive.append(
+                        (filter.replace("details__addresses__", ""),
+                         self.request.query_params[filter])
+                    )
+            else:
+                filter_params[filter] = self.request.query_params[filter]
+
+        identities = Identity.objects.filter(**filter_params)
+
+        if include_inactive is True:
+            return identities
+
+        else:
+            inactive_excluded = identities
+            for identity in identities:
+                for param in exclude_inactive:
+                    q_key = identity.details["addresses"][param[0]][param[1]]
+                    if ('inactive' in q_key and
+                       q_key['inactive'] in [True, 'True']):
+                        inactive_excluded = inactive_excluded.exclude(
+                            id=identity.id)
+            return inactive_excluded
 
 
 class Address(object):
