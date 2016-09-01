@@ -112,7 +112,7 @@ class IdentitySearchList(generics.ListAPIView):
 
         # variable that stores criteria to filter identities by
         filter_criteria = {}
-        # variable that stores a list of addresses that should not be inactive
+        # variable that stores a list of addresses that should be active
         # if the special filter is passed in
         exclude_if_address_inactive = []
 
@@ -139,8 +139,8 @@ class IdentitySearchList(generics.ListAPIView):
                 filter_criteria[filter + "__has_key"] = \
                     self.request.query_params[filter]
 
-                # Add to the address to the list of addresses that should not
-                # be inactive
+                # Add the address to the list of addresses that should not
+                # be inactive (tuple e.g ("msisdn", "+27123"))
                 if include_inactive is False:
                     exclude_if_address_inactive.append(
                         (filter.replace("details__addresses__", ""),
@@ -152,22 +152,17 @@ class IdentitySearchList(generics.ListAPIView):
 
         identities = Identity.objects.filter(**filter_criteria)
 
-        if include_inactive is True:
-            # If we don't need to exclude inactive addresses, just return all
-            # the identities that were found on filtering
-            return identities
-        else:
+        if include_inactive is False:
             # Check through all the identities and exclude ones where the
             # addresses are inactive
-            ids_inactive_excluded = identities
             for identity in identities:
                 for param in exclude_if_address_inactive:
                     q_key = identity.details["addresses"][param[0]][param[1]]
-                    if ('inactive' in q_key and
-                       q_key['inactive'] in [True, 'True', 'true']):
-                        ids_inactive_excluded = ids_inactive_excluded.exclude(
+                    if ('inactive' in q_key and q_key['inactive'] in [True, 'True', 'true']):  # noqa
+                        identities = identities.exclude(
                             id=identity.id)
-            return ids_inactive_excluded
+
+        return identities
 
 
 class Address(object):

@@ -304,6 +304,12 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
             }
         })
         # Execute
+        response_default = self.client.get(
+            '/api/v1/identities/search/',
+            {
+                "details__addresses__msisdn": "+27123"
+            },
+            content_type='application/json')
         response_include_inactive = self.client.get(
             '/api/v1/identities/search/',
             {
@@ -319,6 +325,11 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
             },
             content_type='application/json')
         # Check
+        self.assertEqual(response_default.status_code,
+                         status.HTTP_200_OK)
+        data_default = response_default.json()
+        self.assertEqual(len(data_default["results"]), 2)
+
         self.assertEqual(response_include_inactive.status_code,
                          status.HTTP_200_OK)
         data_include = response_include_inactive.json()
