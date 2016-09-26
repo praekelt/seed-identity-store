@@ -17,7 +17,7 @@ from rest_hooks.models import Hook
 from requests_testadapter import TestAdapter, TestSession
 from go_http.metrics import MetricsApiClient
 
-from .models import (Identity, OptOut, DetailKey, handle_optout,
+from .models import (Identity, OptOut, OptIn, DetailKey, handle_optout,
                      fire_metrics_if_new)
 from .tasks import deliver_hook_wrapper, fire_metric, scheduled_metrics
 from . import tasks
@@ -812,6 +812,103 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         data = response.json()
         self.assertEqual(len(data["key_names"]), 4)
         self.assertEqual("default_addr_type" in data["key_names"], True)
+
+
+class TestOptInAPI(AuthenticatedAPITestCase):
+    def test_create_optin_with_identity(self):
+        # Setup
+        identity = self.make_identity()
+        optin_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123",
+            "identity": str(identity.id)
+        }
+        # Execute
+        response = self.client.post('/api/v1/optin/',
+                                    json.dumps(optin_data),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        d = OptIn.objects.get(id=response.data["id"])
+        self.assertEqual(d.identity, identity)
+        self.assertEqual(d.request_source, "test_source")
+        self.assertEqual(d.requestor_source_id, '1')
+
+    def test_create_optin_with_address(self):
+        # Setup
+        identity = self.make_identity()
+        optin_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123",
+        }
+        # Execute
+        response = self.client.post('/api/v1/optin/',
+                                    json.dumps(optin_data),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        d = OptIn.objects.get(id=response.data["id"])
+        self.assertEqual(d.identity, identity)
+        self.assertEqual(d.request_source, "test_source")
+        self.assertEqual(d.requestor_source_id, '1')
+
+    def test_create_optin_no_matching_address(self):
+        # Setup
+        optin_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123"
+        }
+        # Execute
+        response = self.client.post('/api/v1/optin/',
+                                    json.dumps(optin_data),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()[0],
+                         "There is no identity with this address.")
+
+    def test_create_optin_multiple_matching_addresses(self):
+        # Setup
+        self.make_identity()
+        self.make_identity()
+        optin_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123",
+        }
+        # Execute
+        response = self.client.post('/api/v1/optin/',
+                                    json.dumps(optin_data),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.json()[0],
+            "There are multiple identities with this address.")
+
+    def test_create_webhook(self):
+        # Setup
+        user = User.objects.get(username='testuser')
+        post_data = {
+            "target": "http://example.com/test_source/",
+            "event": "optin.requested"
+        }
+        # Execute
+        response = self.client.post('/api/v1/webhook/',
+                                    json.dumps(post_data),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        d = Hook.objects.last()
+        self.assertEqual(d.target, 'http://example.com/test_source/')
+        self.assertEqual(d.user, user)
 
 
 class TestOptOutAPI(AuthenticatedAPITestCase):

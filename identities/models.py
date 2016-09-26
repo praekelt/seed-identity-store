@@ -95,6 +95,98 @@ class Identity(models.Model):
                         cur_details["optedout"] = True
         self.save()
 
+    def optin_address(self, address_type=None, address=None):
+        self.details["addresses"][address_type][address]["optedout"] = False
+        self.save()
+
+
+@python_2_unicode_compatible
+class OptIn(models.Model):
+    """An opt-in"""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False,
+                          help_text="UUID of this opt-in request.")
+    identity = models.ForeignKey(Identity, null=True,
+                                 help_text="UUID for the identity opting in.")
+    address_type = models.CharField(
+        null=False, max_length=50, default="",
+        help_text="Address type used to identify the identity.")
+    address = models.CharField(
+        null=False, max_length=255, default="",
+        help_text="Address used to identify the identity.")
+    request_source = models.CharField(
+        null=False, max_length=100,
+        help_text="Service that the optin was requested from.")
+    requestor_source_id = models.CharField(
+        null=True, max_length=500,
+        help_text="ID for the user requesting the optin on the service that"
+        " it was requested from. Ideally a UUID.")
+    created_at = models.DateTimeField(auto_now_add=True,
+                                      help_text="Time request was received.")
+    created_by = models.ForeignKey(User, related_name='optin_created',
+                                   null=True,
+                                   help_text="User creating the OptIn")
+
+    user = property(lambda self: self.created_by)
+
+    def __str__(self):
+        return str(self.id)
+
+    def clean(self):
+        """
+        Don't allow optins for non existant addresses or ambiguous ones
+        This is a duplicate of the view code for DRF to stop future
+        internal Django implementations breaking.
+        """
+        if self.identity is None:
+            identities = Identity.objects.filter_by_addr(
+                self.address_type, self.address)
+            if len(identities) == 0:
+                raise ValidationError(
+                    "There is no identity with this address.")
+            if len(identities) > 1:
+                raise ValidationError(
+                    "There are multiple identities with this address. "
+                    "Please use an explict identity.")
+
+
+@receiver(pre_save, sender=OptIn)
+def optin_saved(sender, instance, **kwargs):
+    """
+    This is a duplicte of the view code for DRF to stop future
+    internal Django implementations breaking.
+    """
+    if instance.identity is None:
+        # look up using the address_type and address
+        identities = Identity.objects.filter_by_addr(
+            instance.address_type,
+            instance.address)
+        if identities.count() == 1:
+            instance.identity = identities[0]
+
+
+@receiver(post_save, sender=OptIn)
+def handle_optin(sender, instance, created, **kwargs):
+    if created is False or instance.identity is None:
+        return
+
+    identity = instance.identity
+
+    raw_hook_event.send(
+        sender=None,
+        event_name='optin.requested',
+        payload={
+            'identity': str(identity.id),
+            'identity_details': identity.details,
+            'optin_address_type': instance.address_type,
+            'optin_address': instance.address
+        },
+        user=instance.user,
+        send_hook_meta=False
+    )
+
+    identity.optin_address(address_type=instance.address_type,
+                           address=instance.address)
+
 
 @python_2_unicode_compatible
 class OptOut(models.Model):
@@ -142,7 +234,7 @@ class OptOut(models.Model):
     def clean(self):
         """
         Don't allow optouts for non existant addresses or ambiguous ones
-        This is a duplicte of the view code for DRF to stop future
+        This is a duplicate of the view code for DRF to stop future
         internal Django implementations breaking.
         """
         if self.identity is None:

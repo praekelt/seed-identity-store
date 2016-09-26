@@ -135,6 +135,7 @@ REST_FRAMEWORK = {
 HOOK_EVENTS = {
     # 'any.event.name': 'App.Model.Action' (created/updated/deleted)
     'optout.requested': None,
+    'optin.requested': None,
     'identity.created': 'identities.Identity.created+'
 }
 
