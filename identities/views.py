@@ -7,10 +7,10 @@ from rest_framework.authtoken.models import Token
 from rest_framework import filters
 from rest_hooks.models import Hook
 from django.contrib.auth.models import User, Group
-from .models import Identity, OptOut, DetailKey
+from .models import Identity, OptOut, OptIn, DetailKey
 from .serializers import (UserSerializer, GroupSerializer, AddressSerializer,
                           IdentitySerializer, OptOutSerializer, HookSerializer,
-                          CreateUserSerializer)
+                          CreateUserSerializer, OptInSerializer)
 from seed_identity_store.utils import get_available_metrics
 from .tasks import scheduled_metrics
 import django_filters
@@ -209,6 +209,29 @@ class IdentityAddresses(generics.ListAPIView):
                     else:
                         response.append(Address(address=address))
         return response
+
+
+class OptInViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
+    """ API endpoint that allows opt-ins to be created.
+    """
+    permission_classes = (IsAuthenticated,)
+    queryset = OptIn.objects.all()
+    serializer_class = OptInSerializer
+
+    def perform_create(self, serializer):
+        data = serializer.validated_data
+        if "identity" not in data or data["identity"] is None:
+            identities = Identity.objects.filter_by_addr(
+                data["address_type"], data["address"])
+            if len(identities) == 0:
+                raise ValidationError(
+                    'There is no identity with this address.')
+            if len(identities) > 1:
+                raise ValidationError(
+                    'There are multiple identities with this address.')
+            return serializer.save(created_by=self.request.user,
+                                   identity=identities[0])
+        return serializer.save(created_by=self.request.user)
 
 
 class OptOutViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):

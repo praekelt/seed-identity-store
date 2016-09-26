@@ -17,8 +17,8 @@ from rest_hooks.models import Hook
 from requests_testadapter import TestAdapter, TestSession
 from go_http.metrics import MetricsApiClient
 
-from .models import (Identity, OptOut, DetailKey, handle_optout,
-                     fire_metrics_if_new)
+from .models import (Identity, OptOut, OptIn, DetailKey, handle_optout,
+                     handle_optin, fire_metrics_if_new)
 from .tasks import deliver_hook_wrapper, fire_metric, scheduled_metrics
 from . import tasks
 
@@ -77,9 +77,13 @@ class AuthenticatedAPITestCase(APITestCase):
             session=session)
 
     def _replace_post_save_hooks(self):
+        post_save.disconnect(handle_optout, sender=Identity)
+        post_save.disconnect(handle_optin, sender=Identity)
         post_save.disconnect(fire_metrics_if_new, sender=Identity)
 
     def _restore_post_save_hooks(self):
+        post_save.connect(handle_optout, sender=Identity)
+        post_save.connect(handle_optin, sender=Identity)
         post_save.connect(fire_metrics_if_new, sender=Identity)
 
     def setUp(self):
@@ -812,6 +816,181 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         data = response.json()
         self.assertEqual(len(data["key_names"]), 4)
         self.assertEqual("default_addr_type" in data["key_names"], True)
+
+
+class TestOptInAPI(AuthenticatedAPITestCase):
+    def test_create_optin_with_identity(self):
+        # Setup
+        identity = self.make_identity()
+        optin_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123",
+            "identity": str(identity.id)
+        }
+        # Execute
+        response = self.client.post('/api/v1/optin/',
+                                    json.dumps(optin_data),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        d = OptIn.objects.get(id=response.data["id"])
+        self.assertEqual(d.identity, identity)
+        self.assertEqual(d.request_source, "test_source")
+        self.assertEqual(d.requestor_source_id, '1')
+
+    def test_create_optin_with_address(self):
+        # Setup
+        identity = self.make_identity()
+        optin_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123",
+        }
+        # Execute
+        response = self.client.post('/api/v1/optin/',
+                                    json.dumps(optin_data),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        d = OptIn.objects.get(id=response.data["id"])
+        self.assertEqual(d.identity, identity)
+        self.assertEqual(d.request_source, "test_source")
+        self.assertEqual(d.requestor_source_id, '1')
+
+    def test_create_optin_no_matching_address(self):
+        # Setup
+        optin_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123"
+        }
+        # Execute
+        response = self.client.post('/api/v1/optin/',
+                                    json.dumps(optin_data),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()[0],
+                         "There is no identity with this address.")
+
+    def test_create_optin_multiple_matching_addresses(self):
+        # Setup
+        self.make_identity()
+        self.make_identity()
+        optin_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123",
+        }
+        # Execute
+        response = self.client.post('/api/v1/optin/',
+                                    json.dumps(optin_data),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(
+            response.json()[0],
+            "There are multiple identities with this address.")
+
+    def test_create_webhook(self):
+        # Setup
+        user = User.objects.get(username='testuser')
+        post_data = {
+            "target": "http://example.com/test_source/",
+            "event": "optin.requested"
+        }
+        # Execute
+        response = self.client.post('/api/v1/webhook/',
+                                    json.dumps(post_data),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        d = Hook.objects.last()
+        self.assertEqual(d.target, 'http://example.com/test_source/')
+        self.assertEqual(d.user, user)
+
+    @responses.activate
+    def test_deliver_hook_task(self):
+        # Setup
+        user = User.objects.get(username='testuser')
+        hook = Hook.objects.create(
+            user=user,
+            event='optin.requested',
+            target='http://example.com/api/v1/')
+        payload = {
+            "identity": "test-219f0f88-7d2b-414d-933c-1f8e652869c4",
+            "identity_details": {
+                "addresses": {
+                    "msisdn": {
+                        "+27123": {"optedout": True}
+                    }
+                }
+            },
+            "optin_address_type": "msisdn",
+            "optin_address": "+27123"
+        }
+        responses.add(
+            responses.POST,
+            'http://example.com/api/v1/',
+            json.dumps(payload),
+            status=200, content_type='application/json')
+
+        deliver_hook_wrapper('http://example.com/api/v1/', payload, None, hook)
+
+        # Execute
+        self.assertEqual(responses.calls[0].request.url,
+                         "http://example.com/api/v1/")
+
+    @responses.activate
+    def test_optin(self):
+        # Setup
+        post_save.connect(receiver=handle_optin, sender=OptIn)
+        user = User.objects.get(username='testuser')
+        Hook.objects.create(user=user,
+                            event='optin.requested',
+                            target='http://example.com/api/v1/')
+        identity = self.make_identity()
+        identity.details["addresses"]["msisdn"]["+27123"]["optedout"] = True
+        identity.save()
+
+        payload = {
+            "identity": str(identity.id),
+            "identity_details": identity.details,
+            "optin_address_type": "msisdn",
+            "optin_address": "+27123"
+        }
+        responses.add(
+            responses.POST,
+            'http://example.com/api/v1/',
+            json.dumps(payload),
+            status=200, content_type='application/json')
+
+        OptIn.objects.create(
+            identity=identity, created_by=user, request_source="test_source",
+            requestor_source_id=1, address_type="msisdn", address="+27123")
+
+        self.assertEqual(responses.calls[0].request.url,
+                         'http://example.com/api/v1/')
+        identity = Identity.objects.get(pk=identity.pk)
+        self.assertEqual(identity.details, {
+            "name": "Test Name 1",
+            "default_addr_type": "msisdn",
+            "personnel_code": "12345",
+            "addresses": {
+                "msisdn": {
+                    "+27123": {"optedout": False}
+                },
+                "email": {
+                    "foo1@bar.com": {"default": True},
+                    "foo2@bar.com": {}
+                }
+            }
+        })
 
 
 class TestOptOutAPI(AuthenticatedAPITestCase):
