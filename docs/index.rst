@@ -1,22 +1,17 @@
-.. Seed Identity Store documentation master file, created by
-   sphinx-quickstart on Fri Mar  4 10:43:15 2016.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
+=================================
+Seed Identity Store documentation
+=================================
 
-Welcome to Seed Identity Store's documentation!
-===============================================
+The Seed Identity Store is one of the microservices in the Seed Stack. It is
+responsible for managing the unique identity for each end-user that accesses
+any of the Seed Stack applications or services.
 
-Contents:
+Getting started
+===============
 
-.. toctree::
-   :maxdepth: 2
+The following resources are provided to help you get started running or
+developing the Seed Identity Store:
 
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-
+* :doc:`Requirements <requirements>` and :doc:`Setup <setup>` information
+* :doc:`Model <models>` and :doc:`Authorization <auth>` information
+* :doc:`API Documentation <apis>`
