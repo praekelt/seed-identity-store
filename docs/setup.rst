@@ -58,37 +58,41 @@ The following environmental variables can be used to override some default setti
 
 .. envvar:: SECRET_KEY
 
-SECRET_KEY
-    This matches and overrides the Django :django:setting:`SECRET_KEY` setting.
+    This overrides the Django :django:setting:`SECRET_KEY` setting.
 
 .. envvar:: DEBUG
 
-DEBUG
-    This matches and overrides the Django :django:setting:`DEBUG` setting.
+    This overrides the Django :django:setting:`DEBUG` setting.
 
 .. envvar:: IDENTITIES_DATABASE
 
-IDENTITIES_DATABASE
+    The database parameters to use as a URL in the format specified by the
+    `DJ-Database-URL`_ format.
+
+.. _DJ-Database-URL: https://github.com/kennethreitz/dj-database-url
 
 .. envvar:: IDENTITIES_SENTRY_DSN
 
-IDENTITIES_SENTRY_DSN
+    The DSN to the Sentry instance you would like to log errors to.
 
 .. envvar:: HOOK_AUTH_TOKEN
 
-HOOK_AUTH_TOKEN
+    An Authorization Token to use when making a POST request to a webhook.
 
 .. envvar:: BROKER_URL
 
-BROKER_URL
+    The Broker URL to use with Celery.
 
 .. envvar:: METRICS_URL
 
-METRICS_URL
+    The URL to the `Go Metrics API`_ instance to push metrics to.
+
+.. _Go Metrics API: https://github.com/praekelt/go-metrics-api
 
 .. envvar:: METRICS_AUTH_TOKEN
 
-METRICS_AUTH_TOKEN
+    The `auth token` to use to connect to the `Go Metrics API`_ above.
+
 
 .. _running-in-production:
 
