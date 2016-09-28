@@ -24,7 +24,7 @@ setup(
         'pytz==2015.7',
         'django-rest-hooks==1.3.1',
         'go-http==0.3.0',
-        'drfdocs=0.0.11'
+        'drfdocs==0.0.11',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
