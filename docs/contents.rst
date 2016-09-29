@@ -15,6 +15,7 @@ Seed Identity Store documentation contents
     models
     auth
     apis
+    production
 
 Indices, glossary and tables
 ============================

@@ -21,7 +21,6 @@ setup.py file, but the major ones are:
 * Django REST Framework 3.3
 * Celery 3.1
 
-
 Seed Requirements
 =================
 

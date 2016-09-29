@@ -1,3 +1,3 @@
 ================================
-Authnetication and Authorization
+Authentication and Authorization
 ================================

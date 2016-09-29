@@ -15,3 +15,4 @@ developing the Seed Identity Store:
 * :doc:`Requirements <requirements>` and :doc:`Setup <setup>` information
 * :doc:`Model <models>` and :doc:`Authorization <auth>` information
 * :doc:`API Documentation <apis>`
+* Running the service in :doc:`Production <production>`

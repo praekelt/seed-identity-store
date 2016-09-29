@@ -34,9 +34,9 @@ The steps required to install the Seed Identity Service are:
 
     This will create all the database tables required.
 
-.. note::
-    The PostgreSQL database for the Seed Identity Store needs to exist before
-    running this command. See :ref:`configuration-options` for details.
+    .. note::
+        The PostgreSQL database for the Seed Identity Store needs to exist before
+        running this command. See :envvar:`IDENTITIES_DATABASE` for details.
 
 #. Run the development server:
 
@@ -44,8 +44,10 @@ The steps required to install the Seed Identity Service are:
 
         $ python manage.py runserver
 
-    This will run a development HTTP server. This is only suitable for testing
-    and development, for production usage please see :ref:`running-in-production`
+    .. note::
+        This will run a development HTTP server. This is only suitable for
+        testing and development, for production usage please
+        see :ref:`running-in-production`
 
 .. _configuration-options:
 
@@ -92,12 +94,3 @@ The following environmental variables can be used to override some default setti
 .. envvar:: METRICS_AUTH_TOKEN
 
     The `auth token` to use to connect to the `Go Metrics API`_ above.
-
-
-.. _running-in-production:
-
-Running in Production
-=====================
-
-
-
