@@ -348,227 +348,101 @@ Identities
 
 .. http:get:: /identities/(uuid:identity_id)/
 
+    Returns the Identity record for a given UUID.
+
     :status 200: no error
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
 
 .. http:put:: /identities/(uuid:identity_id)/
 
+    Update the Identity record for the given UUID.
+
     :status 200: no error
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
 
 .. http:delete:: /identities/(uuid:identity_id)/
 
-    :status 200: no error
+    Delete the Identity record for the given UUID.
+
+    :status 204: delete successfully completed.
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
 
 .. http:get:: /identities/(uuid:identity_id)/addresses/(str:address_type)/
 
+    Searches address by a given type for a given Identity.
+
     :status 200: no error
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
 
 .. http:get:: /identities/search/
 
+    Search Identity records by specifying Django filter keys as query
+    parameters.
+
     :status 200: no error
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
 
 .. http:post:: /optout/
 
+    Create an OptOut record.
+
     :status 200: no error
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
 
 .. http:post:: /optin/
 
+    Create an OptIn record.
+
     :status 200: no error
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
 
 Other
 ~~~~~
 
 .. http:get:: /detailkeys/
 
+    Returns a list of all the unique keys stored in any `detail` field of an
+    Identity record.
+
+    This list is populated by a post-save signal on the Identity record.
+
     :status 200: no error
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
 
 .. http:get:: /webhook/
 
+    Returns a list of setup webhooks.
+
     :status 200: no error
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
 
 .. http:post:: /webhook/
 
+    Creates a webhook.
+
     :status 200: no error
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
 
 .. http:get:: /webhook/(int:webhook_id)/
 
+    Get the details of a webhook specified by webhook_id.
+
     :status 200: no error
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
 
 .. http:put:: /webhook/(int:webhook_id)/
 
+    Updates the details of a webhook specified by webhook_id.
+
     :status 200: no error
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
 
 .. http:delete:: /webhook/(int:webhook_id)/
 
+    Deletes the webhook specified by webhook_id.
+
     :status 200: no error
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
 
 
 Helpers
@@ -580,53 +454,23 @@ The root URL for the helper endpoints does not include a version prefix
 .. http:get:: /metrics/
     :noindex:
 
+    Returns a list of all the available metric keys provided by this service.
+
     :status 200: no error
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
 
 .. http:post:: /metrics/
     :noindex:
 
+    Starts a task that fires all scheduled metrics.
+
     :status 200: no error
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
 
 .. http:get:: /health/
     :noindex:
 
+    Returns a basic health check status.
+
     :status 200: no error
     :status 401: the token is invalid/missing.
-
-    **Example request**:
-
-    .. sourcecode:: http
-
-        GET /user/ HTTP/1.1
-        Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
-
-    **Example response**:
-
-    .. sourcecode:: http
