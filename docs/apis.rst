@@ -12,25 +12,7 @@ The root URL for all of the endpoints is:
 Authenticating to the API
 =========================
 
-Authentication to the Seed Identity Store API is provided the
-`Token Authentication`_ feature of the `Django REST Framework`_.
-
-.. _Django REST Framework: http://www.django-rest-framework.org/api-guide/authentication/#tokenauthentication
-.. _Token Authentication: http://www.django-rest-framework.org/api-guide/authentication/#tokenauthentication
-
-In short, each user of this API needs have been supplied a unique secret token
-that must be provided in the ``Authorization`` HTTP header of every request made
-to this API.
-
-An example request with the ``Authorization`` header might look like this:
-
-.. sourcecode:: http
-
-    POST /endpoint/ HTTP/1.1
-    Host: <identity-store-domain>
-    Content-Type: application/json
-    Authorization: Token 9944b09199c62bcf9418ad846dd0e4bbdfc6ee4b
-
+Please see the :doc:`Authentication and Authorization <auth>` document.
 
 Pagination
 ==========

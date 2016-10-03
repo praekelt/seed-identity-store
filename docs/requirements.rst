@@ -21,6 +21,11 @@ setup.py file, but the major ones are:
 * Django REST Framework 3.3
 * Celery 3.1
 
+.. note::
+
+    A celery worker needs to be running to process post-save tasks and
+    scheduled metric firing tasks.
+
 Seed Requirements
 =================
 
