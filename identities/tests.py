@@ -709,7 +709,8 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         new_details = {
             "details": {
                 "name": "Changed Name",
-                "default_addr_type": "email"
+                "default_addr_type": "email",
+                "addresses": {"msisdn": {"+27123": {}}}
             }
         }
         # Execute
@@ -1143,6 +1144,14 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
             json.dumps(payload),
             status=200, content_type='application/json')
 
+        # deactivate Testsession for this test
+        self.session = None
+        # add metric post response
+        responses.add(responses.POST,
+                      "http://metrics-url/metrics/",
+                      json={"foo": "bar"},
+                      status=200, content_type='application/json')
+
         OptOut.objects.create(
             identity=identity, created_by=user, request_source="test_source",
             requestor_source_id=1, address_type="msisdn", address="+27123",
@@ -1268,10 +1277,11 @@ class TestMetricsAPI(AuthenticatedAPITestCase):
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
-            response.data["metrics_available"], [
+            sorted(response.data["metrics_available"]), sorted([
                 'identities.created.sum',
                 'identities.created.last',
-            ]
+                'registrations.change.msisdn.sum',
+            ])
         )
 
     @responses.activate
@@ -1412,3 +1422,45 @@ class TestMetrics(AuthenticatedAPITestCase):
             adapter.request, 'POST',
             data={"identities.created.last": 2.0}
         )
+
+    def test_update_msisdn_metric(self):
+        """
+        When a MSISDN is changed on a identity, a sum metric should be fired
+        """
+        # Setup
+        adapter = self._mount_session()
+
+        identity = self.make_identity()
+        new_details = {
+            "addresses": {"msisdn": {"+27123999": {}}}
+        }
+
+        # Execute
+        identity.details = new_details
+        identity.save()
+
+        # Check
+        self.check_request(
+            adapter.request, 'POST',
+            data={"registrations.change.msisdn.sum": 1.0}
+        )
+
+    def test_update_msisdn_metric_negative(self):
+        """
+        When the details of the identity is updated and the MSISDN remains the
+        same, no metric request should be made
+        """
+        # Setup
+        adapter = self._mount_session()
+
+        identity = self.make_identity()
+        new_details = {
+            "addresses": {"msisdn": {"+27123": {}}}
+        }
+
+        # Execute
+        identity.details = new_details
+        identity.save()
+
+        # Check
+        self.assertEqual(adapter.request, None)

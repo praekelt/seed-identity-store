@@ -73,6 +73,26 @@ class Identity(models.Model):
     def __str__(self):
         return str(self.id)
 
+    def save(self, *args, **kwargs):
+        if self.id and not self._state.adding:
+            old_id = Identity.objects.get(pk=self.id)
+
+            old_keys = [str(k) for k in
+                        old_id.details.get('addresses', {}).get('msisdn', {})
+                        .keys()]
+            new_keys = [str(k) for k in
+                        self.details.get('addresses', {}).get('msisdn', {})
+                        .keys()]
+
+            if (old_keys != new_keys):
+                from .tasks import fire_metric
+                fire_metric.apply_async(kwargs={
+                    "metric_name": 'registrations.change.msisdn.sum',
+                    "metric_value": 1.0
+                })
+
+        super(Identity, self).save(*args, **kwargs)
+
     def remove_details(self, user):
         updated_details = {}
         for attribute, value in self.details.items():

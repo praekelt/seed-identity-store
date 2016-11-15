@@ -188,7 +188,8 @@ CELERY_ROUTES = {
 }
 
 METRICS_REALTIME = [
-    'identities.created.sum'
+    'identities.created.sum',
+    'registrations.change.msisdn.sum',
 ]
 METRICS_SCHEDULED = [
     'identities.created.last'
