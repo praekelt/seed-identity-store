@@ -9,6 +9,8 @@ from django.utils.encoding import python_2_unicode_compatible
 from django.core.exceptions import ValidationError
 from rest_hooks.signals import raw_hook_event
 
+ADDRESS_TYPES = ['msisdn', 'email']
+
 
 class IdentityManager(models.Manager):
 
@@ -74,22 +76,25 @@ class Identity(models.Model):
         return str(self.id)
 
     def save(self, *args, **kwargs):
-        if self.id and not self._state.adding:
+        if (self.id and not self._state.adding and
+                self.details.get('name') != "redacted"):
             old_id = Identity.objects.get(pk=self.id)
 
-            old_keys = [str(k) for k in
-                        old_id.details.get('addresses', {}).get('msisdn', {})
-                        .keys()]
-            new_keys = [str(k) for k in
-                        self.details.get('addresses', {}).get('msisdn', {})
-                        .keys()]
+            for address_type in ADDRESS_TYPES:
+                old_keys = [str(k) for k in
+                            old_id.details.get('addresses', {}).get(
+                            address_type, {}).keys()]
+                new_keys = [str(k) for k in
+                            self.details.get('addresses', {}).get(
+                            address_type, {}).keys()]
 
-            if (old_keys != new_keys):
-                from .tasks import fire_metric
-                fire_metric.apply_async(kwargs={
-                    "metric_name": 'registrations.change.msisdn.sum',
-                    "metric_value": 1.0
-                })
+                if (set(old_keys) != set(new_keys)):
+                    from .tasks import fire_metric
+                    fire_metric.apply_async(kwargs={
+                        "metric_name": 'identities.change.{}.sum'.format(
+                            address_type),
+                        "metric_value": 1.0
+                    })
 
         super(Identity, self).save(*args, **kwargs)
 
