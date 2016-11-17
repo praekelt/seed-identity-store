@@ -709,7 +709,11 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         new_details = {
             "details": {
                 "name": "Changed Name",
-                "default_addr_type": "email"
+                "default_addr_type": "email",
+                "addresses": {
+                    "msisdn": {"+27123": {}},
+                    "email": {"foo1@bar.com": {}, "foo2@bar.com": {}}
+                }
             }
         }
         # Execute
@@ -1268,10 +1272,12 @@ class TestMetricsAPI(AuthenticatedAPITestCase):
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
-            response.data["metrics_available"], [
+            sorted(response.data["metrics_available"]), sorted([
                 'identities.created.sum',
                 'identities.created.last',
-            ]
+                'identities.change.msisdn.sum',
+                'identities.change.email.sum',
+            ])
         )
 
     @responses.activate
@@ -1411,4 +1417,77 @@ class TestMetrics(AuthenticatedAPITestCase):
         self.check_request(
             adapter.request, 'POST',
             data={"identities.created.last": 2.0}
+        )
+
+    def test_update_msisdn_metric(self):
+        """
+        When a MSISDN is changed on a identity, a sum metric should be fired
+        """
+        # Setup
+        adapter = self._mount_session()
+
+        identity = self.make_identity()
+        new_details = {
+            "addresses": {
+                "msisdn": {"+27123999": {}},
+                "email": {"foo1@bar.com": {}, "foo2@bar.com": {}}
+            }
+        }
+
+        # Execute
+        identity.details = new_details
+        identity.save()
+
+        # Check
+        self.check_request(
+            adapter.request, 'POST',
+            data={"identities.change.msisdn.sum": 1.0}
+        )
+
+    def test_update_msisdn_metric_negative(self):
+        """
+        When the details of the identity is updated and the MSISDN remains the
+        same, no metric request should be made
+        """
+        # Setup
+        adapter = self._mount_session()
+
+        identity = self.make_identity()
+        new_details = {
+            "addresses": {
+                "msisdn": {"+27123": {}},
+                "email": {"foo1@bar.com": {}, "foo2@bar.com": {}}
+            }
+        }
+
+        # Execute
+        identity.details = new_details
+        identity.save()
+
+        # Check
+        self.assertEqual(adapter.request, None)
+
+    def test_update_email_metric(self):
+        """
+        When a email is changed on a identity, a sum metric should be fired
+        """
+        # Setup
+        adapter = self._mount_session()
+
+        identity = self.make_identity()
+        new_details = {
+            "addresses": {
+                "msisdn": {"+27123": {}},
+                "email": {"foo1_new@bar.com": {}, "foo2@bar.com": {}}
+            }
+        }
+
+        # Execute
+        identity.details = new_details
+        identity.save()
+
+        # Check
+        self.check_request(
+            adapter.request, 'POST',
+            data={"identities.change.email.sum": 1.0}
         )

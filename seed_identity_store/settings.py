@@ -187,9 +187,15 @@ CELERY_ROUTES = {
     }
 }
 
+ADDRESS_TYPES = ['msisdn', 'email']
+
 METRICS_REALTIME = [
-    'identities.created.sum'
+    'identities.created.sum',
 ]
+
+METRICS_REALTIME.extend(
+    ['identities.change.%s.sum' % at for at in ADDRESS_TYPES])
+
 METRICS_SCHEDULED = [
     'identities.created.last'
 ]
