@@ -9,7 +9,7 @@ from django.utils.encoding import python_2_unicode_compatible
 from django.core.exceptions import ValidationError
 from rest_hooks.signals import raw_hook_event
 
-ADDRESS_TYPES = ['msisdn', 'email']
+from seed_identity_store.settings import ADDRESS_TYPES
 
 
 class IdentityManager(models.Manager):
