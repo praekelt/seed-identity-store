@@ -22,22 +22,32 @@ class Identity(models.Model):
 
     """
     version: 1
+
+    communicate_through is currently used for handling shared
+    cellphones. If an Identity is provided in communicate_through,
+    messages will be sent to that Identity's address rather than this
+    Identity's address.
+
+    A typical `details` field for a USSD
+
     details should contain at minimum:
-    addresses: structured like -
-        "addresses": {
-            "msisdn": {
-                "+27123": {}
-            },
-            "email": {
-                "foo1@bar.com": {"default": True},
-                "foo2@bar.com": {"optedout": True}
+        addresses: structured like -
+            "addresses": {
+                "msisdn": {
+                    "+27123": {"default": True}
+                },
+                "email": {
+                    "foo1@bar.com": {"default": True},
+                    "foo2@bar.com": {"optedout": True}
+                }
             }
-        }
-    default_addr_type: which addr_type in addresses to default to if non-given
+        default_addr_type: which addr_type in addresses to default
+                           to if non-given
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     version = models.IntegerField(default=1)
-    details = JSONField()
+    details = JSONField(default={
+        "addresses": {}, "default_addr_type": None})
     communicate_through = models.ForeignKey(
         'self', related_name='identities_communicate_through',
         null=True, blank=True)
@@ -47,9 +57,9 @@ class Identity(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(User, related_name='identities_created',
-                                   null=True)
+                                   null=True, blank=True)
     updated_by = models.ForeignKey(User, related_name='identities_updated',
-                                   null=True)
+                                   null=True, blank=True)
     user = property(lambda self: self.created_by)
 
     objects = IdentityManager()
@@ -98,6 +108,10 @@ class Identity(models.Model):
     def optin_address(self, address_type=None, address=None):
         self.details["addresses"][address_type][address]["optedout"] = False
         self.save()
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super(Identity, self).save(*args, **kwargs)
 
 
 @python_2_unicode_compatible
