@@ -10,6 +10,7 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.test import TestCase
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
@@ -839,6 +840,80 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         data = response.json()
         self.assertEqual(len(data["key_names"]), 4)
         self.assertEqual("default_addr_type" in data["key_names"], True)
+
+
+class TestIdentityValidation(AuthenticatedAPITestCase):
+    def test_validation_details_not_an_object(self):
+        # Setup
+        # Execute
+        with self.assertRaises(ValidationError) as cm:
+            self.make_identity(id_data={
+                "details": "yes"
+            })
+        # Check
+        self.assertEqual(
+            ["details should be in a JSON object format"],
+            cm.exception.messages
+        )
+
+    def test_validation_details_no_addresses(self):
+        # Setup
+        # Execute
+        with self.assertRaises(ValidationError) as cm:
+            self.make_identity(id_data={
+                "details": {"foo": "bar"}
+            })
+        # Check
+        self.assertEqual(
+            ["details should always contain an addresses field"],
+            cm.exception.messages
+        )
+
+    def test_validation_addresses_not_an_object(self):
+        # Setup
+        # Execute
+        with self.assertRaises(ValidationError) as cm:
+            self.make_identity(id_data={
+                "details": {"addresses": "yes"}
+            })
+        # Check
+        self.assertEqual(
+            ["addresses should be in a JSON object format"],
+            cm.exception.messages
+        )
+
+    def test_validation_details_no_default_addr_type(self):
+        # Setup
+        # Execute
+        with self.assertRaises(ValidationError) as cm:
+            self.make_identity(id_data={
+                "details": {"addresses": {}}
+            })
+        # Check
+        self.assertEqual(
+            ["details should always contain a default_addr_type field"
+             " (can be None)"],
+            cm.exception.messages
+        )
+
+    def test_validation_address_types_not_an_object(self):
+        # Setup
+        # Execute
+        with self.assertRaises(ValidationError) as cm:
+            self.make_identity(id_data={
+                "details": {
+                    "addresses": {
+                        # "foo": "bar"
+                    },
+                    "default_addr_type": "foo"
+                }
+            })
+        # Check
+        self.assertEqual(
+            ["details should always contain a default_addr_type field"
+             " (can be None)"],
+            cm.exception.messages
+        )
 
 
 class TestOptInAPI(AuthenticatedAPITestCase):

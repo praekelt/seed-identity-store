@@ -109,6 +109,50 @@ class Identity(models.Model):
         self.details["addresses"][address_type][address]["optedout"] = False
         self.save()
 
+    def clean(self, *args, **kwargs):
+        super(Identity, self).clean(*args, **kwargs)
+
+        # Check that the details is always an object (can't be a string)
+        if not isinstance(self.details, dict):
+            raise ValidationError(
+                "details should be in a JSON object format")
+
+        # Check that the details always has an addresses object (can be
+        # a blank object)
+        addresses = self.details.get("addresses")
+        if addresses is None:
+            raise ValidationError(
+                "details should always contain an addresses field")
+
+        # Check that the address field is always an object
+        if not isinstance(addresses, dict):
+            raise ValidationError(
+                "addresses should be in a JSON object format")
+
+        # Check that the default_addr_type is always provided
+        if "default_addr_type" not in self.details:
+            raise ValidationError(
+                "details should always contain a default_addr_type field (can"
+                " be None)")
+
+        # Check that the address types are all objects
+        address_types = [field for field in addresses.keys()]
+        print(address_types)
+
+        # Check that default_addr_type is None or one of the address types
+
+        # Check that the address types only contains objects (addresses)
+
+        # Check that each address only contains objects
+
+        # Check that there is only one default address in an address type
+
+        # Check that if an address type "msisdn" exists, its addresses look
+        # like msisdns
+
+        # Check that if an address type "email" exists, its addresses are valid
+        # emails
+
     def save(self, *args, **kwargs):
         self.full_clean()
         super(Identity, self).save(*args, **kwargs)
