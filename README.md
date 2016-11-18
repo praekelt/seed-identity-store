@@ -14,7 +14,16 @@ Seed Identity Store
 
 ## Understanding the `details` field
 
-When a new unrecognised number dials into a USSD app, it will create an Identity for them. This Identity's `details` will typically look like this:
+You could create an identity without any details, some fields will be added to details by default:
+```
+    details: {
+        "addresses": {},
+        "default_addr_type": None
+    }
+```
+While this is possible, it is unlikely that you would create an identity without any details. The usage described below is more typical.
+
+When an unrecognised number dials into a USSD app, it will create an Identity for them. This Identity's `details` will typically look like this:
 ```
     details: {
         "addresses": {
@@ -62,7 +71,8 @@ The `addresses` object is meant to hold all communication channel information we
         },
         "facebook": {
             "bobsfacebookid": {}
-        }
+        },
+        "any_other_address_type_you_like": {}
     },
     "default_addr_type": "email"
 ```
@@ -169,7 +179,7 @@ and then Bob opts in +27125:
 ```
 
 ### Changing addresses
-Currently, an address can only be changed by making a Patch request to the Identity and passing in the changed address. For example, you could change this:
+Currently, an address can only be changed by making a Patch request to the Identity. For example, you could change this:
 ```
     details: {
         "addresses": {
@@ -203,7 +213,6 @@ However, it is often useful to keep track of an Identity's old addresses. This c
         "default_addr_type": "msisdn"
     }
 ```
-
 
 ### Looking up an identity's addresses
 IdentityAddresses.get_queryset & utils.get_identity_address
