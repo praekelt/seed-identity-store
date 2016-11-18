@@ -235,7 +235,8 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
                     "msisdn": {
                         "+27555": {}
                     }
-                }
+                },
+                "default_addr_type": "msisdn"
             }
         })
         # Execute
@@ -271,7 +272,8 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
                     "msisdn": {
                         "+27555": {}
                     }
-                }
+                },
+                "default_addr_type": None,
             }
         })
         # Execute
@@ -301,6 +303,7 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
             "version": 2,
             "details": {
                 "name": "Test Name 4",
+                "default_addr_type": "msisdn",
                 "addresses": {
                     "msisdn": {
                         "+27123": {}
@@ -370,7 +373,8 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
                     "msisdn": {
                         "+27555": {}
                     }
-                }
+                },
+                "default_addr_type": "msisdn"
             }
         })
         # Execute
@@ -393,7 +397,7 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         self.make_identity(id_data={
             "details": {
                 "name": "Test Name 2",
-                "default_addr_type": "msisdn",
+                "default_addr_type": "email",
                 "personnel_code": "23456",
                 "addresses": {
                     "email": {
@@ -410,7 +414,8 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
                     "email": {
                         "foo@bar.com": {}
                     }
-                }
+                },
+                "default_addr_type": "email"
             }
         })
         # Execute
@@ -463,6 +468,7 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
             "version": 2,
             "details": {
                 "name": "Test Name 4",
+                "default_addr_type": "msisdn",
                 "addresses": {
                     "email": {
                         "foo@bar.com": {}
@@ -477,6 +483,7 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
             "version": 2,
             "details": {
                 "name": "Test Name 5",
+                "default_addr_type": "msisdn",
                 "addresses": {
                     "email": {
                         "foo@bar.com": {}
@@ -536,6 +543,7 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
             "version": 2,
             "details": {
                 "name": "Test Name 3",
+                "default_addr_type": "msisdn",
                 "addresses": {
                     "msisdn": {
                         "+27555": {}
@@ -572,6 +580,7 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
             "version": 2,
             "details": {
                 "name": "Test Name 3",
+                "default_addr_type": "msisdn",
                 "addresses": {
                     "msisdn": {
                         "+27555": {}
@@ -608,6 +617,7 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
             "version": 2,
             "details": {
                 "name": "Test Name 3",
+                "default_addr_type": "msisdn",
                 "addresses": {
                     "msisdn": {
                         "+27555": {}
@@ -735,7 +745,8 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         new_details = {
             "details": {
                 "name": "Changed Name",
-                "default_addr_type": "email"
+                "default_addr_type": None,
+                "addresses": {}
             }
         }
         # Execute
@@ -780,7 +791,10 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
             "details": {
                 "name": "Test Name",
                 "default_addr_type": "msisdn",
-                "addresses": "msisdn:+27123 email:foo@bar.com"
+                "addresses": {
+                    "msisdn": {"+27123": {}},
+                    "email": {"foo@bar.com": {}}
+                }
             }
         }
         # Execute
@@ -818,8 +832,9 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         self.make_identity()
         self.make_identity(id_data={
             "details": {
+                "addresses": {},
+                "default_addr_type": None,
                 "fresh": "as",
-                "default_addr_type": "msisdn",
                 "a": "daisy"
             }
         })
@@ -937,7 +952,7 @@ class TestIdentityValidation(AuthenticatedAPITestCase):
         # Check
         self.assertEqual(
             ["default_addr_type should be None or one of the following:"
-             " ['email', 'msisdn']"],
+             " email, msisdn"],
             cm.exception.messages
         )
 
@@ -962,6 +977,31 @@ class TestIdentityValidation(AuthenticatedAPITestCase):
         # Check
         self.assertEqual(
             ["msisdn +27124's details should be in a JSON object format"],
+            cm.exception.messages
+        )
+
+    def test_validation_address_type_has_two_default_entries(self):
+        # Setup
+        # Execute
+        with self.assertRaises(ValidationError) as cm:
+            self.make_identity(id_data={
+                "details": {
+                    "addresses": {
+                        "msisdn": {
+                            "+27123": {},
+                            "+27124": {}
+                        },
+                        "email": {
+                            "foo@example.com": {"default": True, "foo": "bar"},
+                            "bar@example.com": {"default": True},
+                        }
+                    },
+                    "default_addr_type": "msisdn"
+                }
+            })
+        # Check
+        self.assertEqual(
+            ["address type 'email' should only have 1 default address"],
             cm.exception.messages
         )
 

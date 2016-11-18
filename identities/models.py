@@ -143,13 +143,15 @@ class Identity(models.Model):
                     "address type '%s' should be in a JSON object format" % (
                         address_type))
 
-        # Check that default_addr_type is None or one of the address types
+        # Check that default_addr_type is None, one of the address types, or
+        # "redacted"
         default_addr_type = self.details.get("default_addr_type")
         if not (default_addr_type in address_types or
-                default_addr_type is None):
+                default_addr_type is None or
+                default_addr_type == "redacted"):
             raise ValidationError(
                 "default_addr_type should be None or one of the following: %s"
-                % address_types)
+                % ", ".join(sorted(address_types)))
 
         # Check that the address entries are all objects
         for address_type in address_types:
@@ -162,12 +164,26 @@ class Identity(models.Model):
                             address_type, address_key))
 
         # Check that there is only one default address in an address type
+        for address_type in address_types:
+            address_values = [
+                field for field in addresses[address_type].values()]
+            default_addresses = 0
+            for address_value in address_values:
+                default = address_value.get("default")
+                if default is True:
+                    default_addresses += 1
+            if default_addresses > 1:
+                raise ValidationError(
+                    "address type '%s' should only have 1 default address" % (
+                        address_type))
 
-        # Check that if an address type "msisdn" exists, its addresses look
-        # like msisdns
+        # Check that if an address type containing the word "msisdn" exists,
+        # its addresses look like msisdns
+        # TODO
 
-        # Check that if an address type "email" exists, its addresses are valid
-        # emails
+        # Check that if an address type containing the word "email" exists,
+        # its addresses are valid emails
+        # TODO
 
     def save(self, *args, **kwargs):
         self.full_clean()
