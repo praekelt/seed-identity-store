@@ -903,15 +903,65 @@ class TestIdentityValidation(AuthenticatedAPITestCase):
             self.make_identity(id_data={
                 "details": {
                     "addresses": {
-                        # "foo": "bar"
+                        "msisdn": {
+                            "+27123": {}
+                        },
+                        "foo": "bar"
                     },
                     "default_addr_type": "foo"
                 }
             })
         # Check
         self.assertEqual(
-            ["details should always contain a default_addr_type field"
-             " (can be None)"],
+            ["address type 'foo' should be in a JSON object format"],
+            cm.exception.messages
+        )
+
+    def test_validation_default_addr_type_invalid(self):
+        # Setup
+        # Execute
+        with self.assertRaises(ValidationError) as cm:
+            self.make_identity(id_data={
+                "details": {
+                    "addresses": {
+                        "msisdn": {
+                            "+27123": {}
+                        },
+                        "email": {
+                            "foo@example.com": {}
+                        }
+                    },
+                    "default_addr_type": "foo"
+                }
+            })
+        # Check
+        self.assertEqual(
+            ["default_addr_type should be None or one of the following:"
+             " ['email', 'msisdn']"],
+            cm.exception.messages
+        )
+
+    def test_validation_address_entries_not_objects(self):
+        # Setup
+        # Execute
+        with self.assertRaises(ValidationError) as cm:
+            self.make_identity(id_data={
+                "details": {
+                    "addresses": {
+                        "msisdn": {
+                            "+27123": {},
+                            "+27124": "yes"
+                        },
+                        "email": {
+                            "foo@example.com": {}
+                        }
+                    },
+                    "default_addr_type": "msisdn"
+                }
+            })
+        # Check
+        self.assertEqual(
+            ["msisdn +27124's details should be in a JSON object format"],
             cm.exception.messages
         )
 

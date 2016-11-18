@@ -137,13 +137,29 @@ class Identity(models.Model):
 
         # Check that the address types are all objects
         address_types = [field for field in addresses.keys()]
-        print(address_types)
+        for address_type in address_types:
+            if not isinstance(addresses[address_type], dict):
+                raise ValidationError(
+                    "address type '%s' should be in a JSON object format" % (
+                        address_type))
 
         # Check that default_addr_type is None or one of the address types
+        default_addr_type = self.details.get("default_addr_type")
+        if not (default_addr_type in address_types or
+                default_addr_type is None):
+            raise ValidationError(
+                "default_addr_type should be None or one of the following: %s"
+                % address_types)
 
-        # Check that the address types only contains objects (addresses)
-
-        # Check that each address only contains objects
+        # Check that the address entries are all objects
+        for address_type in address_types:
+            address_keys = [
+                field for field in addresses[address_type].keys()]
+            for address_key in address_keys:
+                if not isinstance(addresses[address_type][address_key], dict):
+                    raise ValidationError(
+                        "%s %s's details should be in a JSON object format" % (
+                            address_type, address_key))
 
         # Check that there is only one default address in an address type
 
