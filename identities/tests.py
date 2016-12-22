@@ -16,7 +16,6 @@ from django.db.models.signals import post_save
 from django.test import TestCase
 from django.conf import settings
 from django.core.management import call_command
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
