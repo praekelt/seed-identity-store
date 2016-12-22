@@ -6,10 +6,17 @@ try:
 except ImportError:
     from urlparse import urlparse
 
+try:
+    from StringIO import StringIO
+except ImportError:
+    from io import StringIO
+
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.test import TestCase
 from django.conf import settings
+from django.core.management import call_command
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
@@ -1491,3 +1498,30 @@ class TestMetrics(AuthenticatedAPITestCase):
             adapter.request, 'POST',
             data={"identities.change.email.sum": 1.0}
         )
+
+
+class TestReportPMTCTRisks(AuthenticatedAPITestCase):
+
+    def test_generate_report(self):
+        self.make_identity(id_data={
+            "details": {
+                "name": "Test Name 2",
+                "default_addr_type": "msisdn",
+                "personnel_code": "23456",
+                "pmtct": {
+                    "risk_status": "high",
+                },
+                "source": "pmtct",
+                "addresses": {
+                    "msisdn": {
+                        "+27123": {}
+                    }
+                }
+            }
+        })
+        stdout = StringIO()
+        call_command('report_pmtct_risks', stdout=stdout)
+        self.assertEqual(stdout.getvalue().strip(), '\r\n'.join([
+            'risk_status,count',
+            'high,1',
+        ]))
