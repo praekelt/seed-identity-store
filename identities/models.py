@@ -316,6 +316,7 @@ def handle_optout(sender, instance, created, **kwargs):
             'identity': str(identity.id),
             'identity_details': identity.details,
             'optout_type': instance.optout_type,
+            'optout_reason': instance.reason,
         },
         user=instance.user,
         send_hook_meta=False
