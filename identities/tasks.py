@@ -65,6 +65,7 @@ class FireMetric(Task):
             return "Failed to fire metric <%s> with value <%s> because %s" % (
                 metric_name, metric_value, e)
 
+
 fire_metric = FireMetric()
 
 
@@ -83,6 +84,7 @@ class ScheduledMetrics(Task):
         return "%d Scheduled metrics launched" % len(
             settings.METRICS_SCHEDULED_TASKS)
 
+
 scheduled_metrics = ScheduledMetrics()
 
 
@@ -98,6 +100,7 @@ class FireCreatedLast(Task):
             "metric_name": 'identities.created.last',
             "metric_value": created_identities
         })
+
 
 fire_created_last = FireCreatedLast()
 
@@ -115,5 +118,6 @@ class PopulateDetailKey(Task):
         for i in new_items:
             DetailKey.objects.create(key_name=i)
         return "Added <%s> new DetailKey records" % len(new_items)
+
 
 populate_detail_key = PopulateDetailKey()
