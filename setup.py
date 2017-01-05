@@ -1,12 +1,38 @@
+import codecs
+import os
+import re
+
 from setuptools import setup, find_packages
+
+
+HERE = os.path.abspath(os.path.dirname(__file__))
+
+
+def read(*parts):  # Stolen from txacme
+    with codecs.open(os.path.join(HERE, *parts), 'rb', 'utf-8') as f:
+        return f.read()
+
+
+def get_version(package):
+    """
+    Return package version as listed in `__version__` in `init.py`.
+    """
+    init_py = open(os.path.join(package, '__init__.py')).read()
+    return re.search("__version__ = ['\"]([^'\"]+)['\"]", init_py).group(1)
+
+
+version = get_version('seed_identity_store')
+
 
 setup(
     name="seed-identity-store",
-    version="0.1",
+    version=version,
     url='http://github.com/praekelt/seed-identity-store',
     license='BSD',
-    author='Praekelt Foundation',
-    author_email='dev@praekeltfoundation.org',
+    description='Seed Identity Store mircoservice',
+    long_description=read('README.rst'),
+    author='Praekelt.org',
+    author_email='dev@praekelt.org',
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
