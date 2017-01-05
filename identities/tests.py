@@ -199,6 +199,48 @@ class TestUserCreation(AuthenticatedAPITestCase):
 
 class TestIdentityAPI(AuthenticatedAPITestCase):
 
+    def test_read_optouts(self):
+        # Setup
+        identity = self.make_identity()
+        optout_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123",
+            "identity": identity,
+            "reason": "not good messages",
+        }
+        OptOut.objects.create(**optout_data)
+        # Execute
+        response = self.client.get('/api/v1/optouts/search/',
+                                   {"reason": "not good messages"},
+                                   content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(len(data["results"]), 1)
+
+    def test_read_optouts_filter(self):
+        # Setup
+        identity = self.make_identity()
+        optout_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123",
+            "identity": identity,
+            "reason": "not good messages",
+        }
+        OptOut.objects.create(**optout_data)
+        # Execute
+        response = self.client.get('/api/v1/optouts/search/',
+                                   {"reason": "very good messages"},
+                                   content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(len(data["results"]), 0)
+
     def test_read_identity(self):
         # Setup
         identity = self.make_identity()

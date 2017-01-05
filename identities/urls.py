@@ -21,4 +21,6 @@ urlpatterns = [
         name='create-user-token'),
     url(r'^api/v1/detailkeys/', views.DetailKeyView.as_view()),
     url(r'^api/v1/', include(router.urls)),
+    url(r'^api/v1/optouts/search/$',
+        views.OptOutSearchList.as_view()),
 ]

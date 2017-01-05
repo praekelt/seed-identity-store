@@ -257,6 +257,20 @@ class OptOutViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
         return serializer.save(created_by=self.request.user)
 
 
+class OptOutSearchList(generics.ListAPIView):
+    permission_classes = (IsAuthenticated,)
+    serializer_class = OptOutSerializer
+
+    def get_queryset(self):
+        query_params = list(self.request.query_params.keys())
+        filter_criteria = {}
+
+        for filter in query_params:
+            filter_criteria[filter] = self.request.query_params[filter]
+
+        return OptOut.objects.filter(**filter_criteria)
+
+
 class HookViewSet(viewsets.ModelViewSet):
     """ Retrieve, create, update or destroy webhooks.
     """
