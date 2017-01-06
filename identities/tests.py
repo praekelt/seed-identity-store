@@ -240,8 +240,8 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
                                    content_type='application/json')
         # Check
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.json()[0],
-                         "Cannot resolve keyword u'foo' into field. Choices "
+        self.assertEqual(response.json()[0].replace("u'", "'"),
+                         "Cannot resolve keyword 'foo' into field. Choices "
                          "are: address, address_type, created_at, created_by, "
                          "created_by_id, id, identity, identity_id, "
                          "optout_type, reason, request_source, "
