@@ -7,6 +7,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework import filters
 from rest_hooks.models import Hook
 from django.contrib.auth.models import User, Group
+from django.core.exceptions import FieldError
 from .models import Identity, OptOut, OptIn, DetailKey
 from .serializers import (UserSerializer, GroupSerializer, AddressSerializer,
                           IdentitySerializer, OptOutSerializer, HookSerializer,
@@ -268,7 +269,10 @@ class OptOutSearchList(generics.ListAPIView):
         for filter in query_params:
             filter_criteria[filter] = self.request.query_params[filter]
 
-        return OptOut.objects.filter(**filter_criteria)
+        try:
+            return OptOut.objects.filter(**filter_criteria)
+        except FieldError as e:
+            raise ValidationError(e.message)
 
 
 class HookViewSet(viewsets.ModelViewSet):
