@@ -272,7 +272,7 @@ class OptOutSearchList(generics.ListAPIView):
         try:
             return OptOut.objects.filter(**filter_criteria)
         except FieldError as e:
-            raise ValidationError(e.message)
+            raise ValidationError(str(e))
 
 
 class HookViewSet(viewsets.ModelViewSet):
