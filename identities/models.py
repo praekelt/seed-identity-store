@@ -7,6 +7,7 @@ from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.encoding import python_2_unicode_compatible
 from django.core.exceptions import ValidationError
+from django.core.cache import cache
 from rest_hooks.signals import raw_hook_event
 
 from seed_identity_store.settings import ADDRESS_TYPES
@@ -316,6 +317,8 @@ def handle_optout(sender, instance, created, **kwargs):
             'identity': str(identity.id),
             'identity_details': identity.details,
             'optout_type': instance.optout_type,
+            'optout_reason': instance.reason,
+            'optout_source': instance.request_source,
         },
         user=instance.user,
         send_hook_meta=False
@@ -329,6 +332,43 @@ def handle_optout(sender, instance, created, **kwargs):
                                 address=instance.address)
     elif instance.optout_type == "stopall":
         identity.optout_address(scope="all")
+
+
+def get_or_incr_cache(key, func):
+    """
+    Used to either get a value from the cache, or if the value doesn't exist
+    in the cache, run the function to get a value to use to populate the cache
+    """
+    value = cache.get(key)
+    if value is None:
+        value = func()
+        cache.set(key, value)
+    else:
+        cache.incr(key)
+        value += 1
+    return value
+
+
+@receiver(post_save, sender=OptOut)
+def fire_optout_metric(sender, instance, created, **kwargs):
+    if created is False or instance.identity is None:
+        return
+
+    from .tasks import fire_metric
+
+    fire_metric.apply_async(kwargs={
+        "metric_name": 'optout.sum',
+        "metric_value": 1.0
+    })
+
+    total_key = 'optout.total.last'
+    total = get_or_incr_cache(
+        total_key,
+        OptOut.objects.all().count)
+    fire_metric.apply_async(kwargs={
+        'metric_name': total_key,
+        'metric_value': total,
+    })
 
 
 @receiver(post_save, sender=Identity)

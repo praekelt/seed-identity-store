@@ -202,6 +202,8 @@ ADDRESS_TYPES = ['msisdn', 'email']
 
 METRICS_REALTIME = [
     'identities.created.sum',
+    'optout.sum',
+    'optout.total.last',
 ]
 
 METRICS_REALTIME.extend(
