@@ -263,14 +263,8 @@ class OptOutSearchList(generics.ListAPIView):
     serializer_class = OptOutSerializer
 
     def get_queryset(self):
-        query_params = list(self.request.query_params.keys())
-        filter_criteria = {}
-
-        for filter in query_params:
-            filter_criteria[filter] = self.request.query_params[filter]
-
         try:
-            return OptOut.objects.filter(**filter_criteria)
+            return OptOut.objects.filter(**self.request.query_params.dict())
         except FieldError as e:
             raise ValidationError(str(e))
 
