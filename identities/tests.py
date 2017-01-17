@@ -18,7 +18,7 @@ from requests_testadapter import TestAdapter, TestSession
 from go_http.metrics import MetricsApiClient
 
 from .models import (Identity, OptOut, OptIn, DetailKey, handle_optout,
-                     handle_optin, fire_metrics_if_new)
+                     handle_optin, fire_metrics_if_new, fire_optout_metric)
 from .tasks import deliver_hook_wrapper, fire_metric, scheduled_metrics
 from . import tasks
 
@@ -80,11 +80,13 @@ class AuthenticatedAPITestCase(APITestCase):
         post_save.disconnect(handle_optout, sender=Identity)
         post_save.disconnect(handle_optin, sender=Identity)
         post_save.disconnect(fire_metrics_if_new, sender=Identity)
+        post_save.disconnect(fire_optout_metric, sender=OptOut)
 
     def _restore_post_save_hooks(self):
         post_save.connect(handle_optout, sender=Identity)
         post_save.connect(handle_optin, sender=Identity)
         post_save.connect(fire_metrics_if_new, sender=Identity)
+        post_save.connect(fire_optout_metric, sender=OptOut)
 
     def setUp(self):
         super(AuthenticatedAPITestCase, self).setUp()
@@ -198,6 +200,73 @@ class TestUserCreation(AuthenticatedAPITestCase):
 
 
 class TestIdentityAPI(AuthenticatedAPITestCase):
+
+    def test_read_optouts(self):
+        # Setup
+        identity = self.make_identity()
+        optout_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123",
+            "identity": identity,
+            "reason": "not good messages",
+        }
+        OptOut.objects.create(**optout_data)
+        # Execute
+        response = self.client.get('/api/v1/optouts/search/',
+                                   {"reason": "not good messages"},
+                                   content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(len(data["results"]), 1)
+
+    def test_read_optouts_invalid(self):
+        # Setup
+        identity = self.make_identity()
+        optout_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123",
+            "identity": identity,
+            "reason": "not good messages",
+        }
+        OptOut.objects.create(**optout_data)
+        # Execute
+        response = self.client.get('/api/v1/optouts/search/',
+                                   {"foo": "bar"},
+                                   content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.json()[0].replace("u'", "'"),
+                         "Cannot resolve keyword 'foo' into field. Choices "
+                         "are: address, address_type, created_at, created_by, "
+                         "created_by_id, id, identity, identity_id, "
+                         "optout_type, reason, request_source, "
+                         "requestor_source_id")
+
+    def test_read_optouts_filter(self):
+        # Setup
+        identity = self.make_identity()
+        optout_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123",
+            "identity": identity,
+            "reason": "not good messages",
+        }
+        OptOut.objects.create(**optout_data)
+        # Execute
+        response = self.client.get('/api/v1/optouts/search/',
+                                   {"reason": "very good messages"},
+                                   content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertEqual(len(data["results"]), 0)
 
     def test_read_identity(self):
         # Setup
@@ -1277,6 +1346,8 @@ class TestMetricsAPI(AuthenticatedAPITestCase):
                 'identities.created.last',
                 'identities.change.msisdn.sum',
                 'identities.change.email.sum',
+                'optout.sum',
+                'optout.total.last',
             ])
         )
 
@@ -1358,6 +1429,41 @@ class TestMetrics(AuthenticatedAPITestCase):
         )
         # remove post_save hooks to prevent teardown errors
         post_save.disconnect(fire_metrics_if_new, sender=Identity)
+
+    @responses.activate
+    def test_optout_created_metrics(self):
+        # Setup
+        identity = self.make_identity()
+        optout_data = {
+            "request_source": "test_source",
+            "requestor_source_id": "1",
+            "address_type": "msisdn",
+            "address": "+27123",
+            "identity": identity,
+            "reason": "not good messages",
+        }
+        OptOut.objects.create(**optout_data)
+
+        self.session = None
+        # reconnect metric post_save hook
+        post_save.connect(fire_optout_metric, sender=OptOut)
+
+        responses.add(responses.POST,
+                      "http://metrics-url/metrics/",
+                      json={"foo": "bar"},
+                      status=200, content_type='application/json')
+
+        # Execute
+        OptOut.objects.create(**optout_data)
+
+        # Check
+        self.assertEqual(len(responses.calls), 2)
+        [call1, call2] = responses.calls
+        self.assertEqual(json.loads(call1.request.body), {"optout.sum": 1.0})
+        self.assertEqual(json.loads(call2.request.body),
+                         {"optout.total.last": 2.0})
+        # remove post_save hooks to prevent teardown errors
+        post_save.disconnect(fire_optout_metric, sender=OptOut)
 
     @responses.activate
     def test_multiple_created_metrics(self):
