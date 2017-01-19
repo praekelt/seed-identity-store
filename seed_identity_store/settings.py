@@ -64,6 +64,7 @@ MIDDLEWARE_CLASSES = (
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'seed_papertrail.middleware.RequestTimingMiddleware',
 )
 
 ROOT_URLCONF = 'seed_identity_store.urls'
@@ -212,3 +213,27 @@ djcelery.setup_loader()
 
 METRICS_URL = os.environ.get("METRICS_URL", None)
 METRICS_AUTH_TOKEN = os.environ.get("METRICS_AUTH_TOKEN", "REPLACEME")
+
+
+from seed_papertrail.config import handler, formatter  # noqa
+
+PAPERTRAIL = os.environ.get('PAPERTRAIL')
+if PAPERTRAIL:
+    PAPERTRAIL_HOST, _, PAPERTRAIL_PORT = PAPERTRAIL.partition(':')
+    LOGGING = {
+        'handlers': {
+            'papertrail': handler(
+                host=PAPERTRAIL_HOST,
+                port=int(PAPERTRAIL_PORT), formatter='papertrail')
+        },
+        'loggers': {
+            'papertrail': {
+                'handlers': ['papertrail'],
+                'level': 'DEBUG',
+                'propagate': True,
+            }
+        },
+        'formatters': {
+            'papertrail': formatter('seed', 'identity_store')
+        }
+    }

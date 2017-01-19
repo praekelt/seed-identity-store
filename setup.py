@@ -25,6 +25,7 @@ setup(
         'django-rest-hooks==1.3.1',
         'go-http==0.3.0',
         'drfdocs==0.0.11',
+        'seed-papertrail>=1.2.0',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
