@@ -7,6 +7,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework import filters
 from rest_hooks.models import Hook
 from django.contrib.auth.models import User, Group
+from django.core.exceptions import FieldError
 from .models import Identity, OptOut, OptIn, DetailKey
 from .serializers import (UserSerializer, GroupSerializer, AddressSerializer,
                           IdentitySerializer, OptOutSerializer, HookSerializer,
@@ -257,6 +258,17 @@ class OptOutViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
         return serializer.save(created_by=self.request.user)
 
 
+class OptOutSearchList(generics.ListAPIView):
+    permission_classes = (IsAuthenticated,)
+    serializer_class = OptOutSerializer
+
+    def get_queryset(self):
+        try:
+            return OptOut.objects.filter(**self.request.query_params.dict())
+        except FieldError as e:
+            raise ValidationError(str(e))
+
+
 class HookViewSet(viewsets.ModelViewSet):
     """ Retrieve, create, update or destroy webhooks.
     """
@@ -298,11 +310,19 @@ class HealthcheckView(APIView):
     permission_classes = (IsAuthenticated,)
 
     def get(self, request, *args, **kwargs):
+        import seed_identity_store
+        import django
+        import rest_framework
         status = 200
         resp = {
             "up": True,
             "result": {
-                "database": "Accessible"
+                "database": "Accessible",
+                "version": seed_identity_store.__version__,
+                "libraries": {
+                    "django": django.__version__,
+                    "djangorestframework": rest_framework.__version__
+                }
             }
         }
         return Response(resp, status=status)
