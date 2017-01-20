@@ -228,29 +228,12 @@ METRICS_URL = os.environ.get("METRICS_URL", None)
 METRICS_AUTH_TOKEN = os.environ.get("METRICS_AUTH_TOKEN", "REPLACEME")
 
 
-from seed_papertrail.config import handler, formatter  # noqa
-
 PAPERTRAIL = os.environ.get('PAPERTRAIL')
 if PAPERTRAIL:
+    import seed_papertrail  # noqa
     PAPERTRAIL_HOST, _, PAPERTRAIL_PORT = PAPERTRAIL.partition(':')
-    LOGGING = {
-        'version': 1,
-        'disable_existing_loggers': False,
-        'handlers': {
-            'papertrail': handler(
-                host=PAPERTRAIL_HOST,
-                port=int(PAPERTRAIL_PORT), formatter='papertrail')
-        },
-        'loggers': {
-            'papertrail': {
-                'handlers': ['papertrail'],
-                'level': 'DEBUG',
-                'propagate': True,
-            }
-        },
-        'formatters': {
-            'papertrail': formatter(
-                os.environ.get('MARATHON_APP_DOCKER_IMAGE', 'seed'),
-                os.environ.get('MESOS_TASK_ID', 'identity_store'))
-        }
-    }
+    LOGGING = seed_papertrail.auto_configure(
+        host=PAPERTRAIL_HOST,
+        port=int(PAPERTRAIL_PORT),
+        system=os.environ.get('MARATHON_APP_DOCKER_IMAGE', 'seed'),
+        program=os.environ.get('MESOS_TASK_ID', 'identity_store'))
