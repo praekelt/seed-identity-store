@@ -249,6 +249,8 @@ if PAPERTRAIL:
             }
         },
         'formatters': {
-            'papertrail': formatter('seed', 'identity_store')
+            'papertrail': formatter(
+                os.environ.get('MARATHON_APP_DOCKER_IMAGE', 'seed'),
+                os.environ.get('MESOS_TASK_ID', 'identity_store'))
         }
     }
