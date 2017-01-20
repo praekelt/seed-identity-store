@@ -234,6 +234,8 @@ PAPERTRAIL = os.environ.get('PAPERTRAIL')
 if PAPERTRAIL:
     PAPERTRAIL_HOST, _, PAPERTRAIL_PORT = PAPERTRAIL.partition(':')
     LOGGING = {
+        'version': 1,
+        'disable_existing_loggers': False,
         'handlers': {
             'papertrail': handler(
                 host=PAPERTRAIL_HOST,
