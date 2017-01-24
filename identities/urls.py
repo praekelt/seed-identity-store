@@ -24,6 +24,8 @@ urlpatterns = [
         name='create-user-token'),
     url(r'^api/v1/detailkeys/',
         papertrail.debug(sample=0.1)(views.DetailKeyView.as_view())),
+    # NOTE: Not sure how to wrap these router.urls in papertrail yet,
+    #       seems like DRF makes this unnecessarily difficult.
     url(r'^api/v1/', include(router.urls)),
     url(r'^api/v1/optouts/search/$',
         papertrail.debug(sample=0.1)(views.OptOutSearchList.as_view())),
