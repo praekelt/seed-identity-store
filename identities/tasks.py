@@ -5,6 +5,7 @@ from celery.task import Task
 from django.conf import settings
 from go_http.metrics import MetricsApiClient
 from .models import Identity, DetailKey
+from seed_papertrail.decorators import papertrail
 
 
 class DeliverHook(Task):
@@ -51,6 +52,7 @@ class FireMetric(Task):
     """
     name = "seed_identity_store.identities.tasks.fire_metric"
 
+    @papertrail.debug(name)
     def run(self, metric_name, metric_value, session=None, **kwargs):
         metric_value = float(metric_value)
         metric = {
@@ -76,6 +78,7 @@ class ScheduledMetrics(Task):
     """
     name = "seed_identity_store.subscriptions.tasks.scheduled_metrics"
 
+    @papertrail.debug(name)
     def run(self, **kwargs):
         globs = globals()  # execute globals() outside for loop for efficiency
         for metric in settings.METRICS_SCHEDULED_TASKS:
@@ -94,6 +97,7 @@ class FireCreatedLast(Task):
     """
     name = "seed_identity_store.subscriptions.tasks.fire_created_last"
 
+    @papertrail.debug(name)
     def run(self):
         created_identities = Identity.objects.all().count()
         return fire_metric.apply_async(kwargs={
@@ -111,6 +115,7 @@ class PopulateDetailKey(Task):
     """
     name = "seed_identity_store.identities.tasks.populate_detail_key"
 
+    @papertrail.debug(name)
     def run(self, key_names):
         existing_keys = DetailKey.objects.values_list('key_name', flat=True)
         # get key_names NOT in existing_keys
