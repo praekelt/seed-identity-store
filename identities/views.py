@@ -184,32 +184,17 @@ class IdentityAddresses(generics.ListAPIView):
         """
         identity_id = self.kwargs['identity_id']
         address_type = self.kwargs['address_type']
-        identity = Identity.objects.get(id=identity_id)
-        response = []
-        if "addresses" in identity.details:
-            addresses = identity.details["addresses"]
-            # remove all non matching addresses types
-            for addr_type in addresses.keys():
-                if addr_type != address_type:
-                    addresses.pop(addr_type)
-            # Ignore opted out addresses and make the response and apply
-            # default filter if spec'd
-            for address_type, entries in addresses.items():
-                for address, metadata in entries.items():
-                    if "optedout" in metadata and metadata["optedout"]:
-                        break
-                    if "default" in self.request.query_params:
-                        # look for default
-                        if len(entries.keys()) > 1:
-                            # more than one address, look for default flag
-                            if "default" in metadata and metadata["default"]:
-                                response.append(Address(address=address))
-                        else:
-                            # if only one address its assumed default
-                            response.append(Address(address=address))
-                    else:
-                        response.append(Address(address=address))
-        return response
+        use_ct = 'use_communicate_through' in self.request.query_params
+        default_only = 'default' in self.request.query_params
+        if use_ct:
+            identity = Identity.objects.select_related('communicate_through')\
+                .get(id=identity_id)
+            if identity.communicate_through is not None:
+                identity = identity.communicate_through
+        else:
+            identity = Identity.objects.get(id=identity_id)
+        addresses = identity.get_addresses_list(address_type, default_only)
+        return [Address(addr) for addr in addresses]
 
 
 class OptInViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
