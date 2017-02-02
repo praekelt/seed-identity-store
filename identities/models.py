@@ -125,6 +125,27 @@ class Identity(models.Model):
         self.details["addresses"][address_type][address]["optedout"] = False
         self.save()
 
+    def get_addresses_list(self, address_type, default_only=False):
+        response = []
+        if "addresses" in self.details:
+            if address_type in self.details['addresses']:
+                addresses = self.details["addresses"][address_type]
+                for address, metadata in addresses.items():
+                    if "optedout" in metadata and metadata["optedout"]:
+                        break
+                    if default_only:
+                        # look for default
+                        if len(addresses.keys()) > 1:
+                            # more than one address, look for default flag
+                            if "default" in metadata and metadata["default"]:
+                                response.append(address)
+                        else:
+                            # if only one address its assumed default
+                            response.append(address)
+                    else:
+                        response.append(address)
+        return response
+
 
 @python_2_unicode_compatible
 class OptIn(models.Model):
