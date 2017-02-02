@@ -189,7 +189,8 @@ class IdentityAddresses(generics.ListAPIView):
         if use_ct:
             identity = Identity.objects.select_related('communicate_through')\
                 .get(id=identity_id)
-            identity = identity.communicate_through
+            if identity.communicate_through is not None:
+                identity = identity.communicate_through
         else:
             identity = Identity.objects.get(id=identity_id)
         addresses = identity.get_addresses_list(address_type, default_only)
