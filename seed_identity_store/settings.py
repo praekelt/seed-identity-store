@@ -220,8 +220,20 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_IGNORE_RESULT = True
+CELERYD_MAX_TASKS_PER_CHILD = 50
 
 djcelery.setup_loader()
 
 METRICS_URL = os.environ.get("METRICS_URL", None)
 METRICS_AUTH_TOKEN = os.environ.get("METRICS_AUTH_TOKEN", "REPLACEME")
+
+
+PAPERTRAIL = os.environ.get('PAPERTRAIL')
+if PAPERTRAIL:
+    import seed_papertrail  # noqa
+    PAPERTRAIL_HOST, _, PAPERTRAIL_PORT = PAPERTRAIL.partition(':')
+    LOGGING = seed_papertrail.auto_configure(
+        host=PAPERTRAIL_HOST,
+        port=int(PAPERTRAIL_PORT),
+        system=os.environ.get('MARATHON_APP_DOCKER_IMAGE', 'seed'),
+        program=os.environ.get('MESOS_TASK_ID', 'identity_store'))
