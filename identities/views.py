@@ -6,6 +6,8 @@ from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework import filters
 from rest_hooks.models import Hook
+from rest_hooks.signals import raw_hook_event
+from django.conf import settings
 from django.contrib.auth.models import User, Group
 from django.core.exceptions import FieldError
 from .models import Identity, OptOut, OptIn, DetailKey
@@ -164,6 +166,49 @@ class IdentitySearchList(generics.ListAPIView):
                             id=identity.id)
 
         return identities
+
+
+def fire_max_send_failures_hook(user, identity):
+        raw_hook_event.send(
+            sender=None,
+            event_name='identity.max_failures',
+            payload={
+                'identity_id': str(identity.id),
+                'failure_count': identity.failed_message_count
+            },
+            user=user
+        )
+
+
+class UpdateFailedMessageCount(APIView):
+    """ Increments failed_message_count for a given Identity and triggers hook
+        if max failures reached
+    """
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        if data.get('identity', None) is not None:
+            identity = Identity.objects.get(pk=data['identity'])
+        elif data.get('to_addr', None) is not None:
+            identity = Identity.objects.get(
+                details__addresses__msisdn__has_key=data['to_addr'])
+        else:
+            raise ValidationError(
+                'One of "identity" or "to_addr" must be supplied')
+
+        if data['delivered']:
+            identity.failed_message_count = 0
+        else:
+            identity.failed_message_count += 1
+        identity.save()
+        identity.refresh_from_db()
+
+        if identity.failed_message_count >= \
+                settings.MAX_CONSECUTIVE_SEND_FAILURES:
+            fire_max_send_failures_hook(request.user, identity)
+
+        return Response(status=status.HTTP_200_OK)
 
 
 class Address(object):
