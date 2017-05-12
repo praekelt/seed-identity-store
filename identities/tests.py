@@ -970,6 +970,88 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         self.assertEqual(len(data["key_names"]), 4)
         self.assertEqual("default_addr_type" in data["key_names"], True)
 
+    def test_update_failed_message_count_identity_given(self):
+        # Setup
+        identity = self.make_identity()
+        data = {
+            "identity": str(identity.id),
+            "delivered": False,
+        }
+        # Execute
+        response = self.client.post('/api/v1/identities/message_count/',
+                                    json.dumps(data),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        d = Identity.objects.last()
+        self.assertEqual(d.failed_message_count, 1)
+
+    def test_update_failed_message_count_address_given(self):
+        # Setup
+        self.make_identity()
+        data = {
+            "to_addr": "+27123",
+            "delivered": False,
+        }
+        # Execute
+        response = self.client.post('/api/v1/identities/message_count/',
+                                    json.dumps(data),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        d = Identity.objects.last()
+        self.assertEqual(d.failed_message_count, 1)
+
+    @responses.activate
+    def test_reached_max_failed_message_count(self):
+        # Setup
+        hook = Hook.objects.create(
+            user=self.user, event='identity.max_failures',
+            target='http://example.com')
+        responses.add(responses.POST, 'http://example.com',
+                      status=200, content_type='application/json')
+
+        identity = self.make_identity()
+        identity.failed_message_count = 4
+        identity.save()
+        data = {
+            "identity": str(identity.id),
+            "delivered": False,
+        }
+        # Execute
+        response = self.client.post('/api/v1/identities/message_count/',
+                                    json.dumps(data),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        d = Identity.objects.last()
+        self.assertEqual(d.failed_message_count, 5)
+
+        [r] = responses.calls
+        r = json.loads(r.request.body)
+        self.assertEqual(r['hook'], {"id": hook.id, "event": hook.event,
+                                     "target": hook.target})
+        self.assertEqual(r['data'], {"identity_id": str(d.id),
+                                     "failure_count": d.failed_message_count})
+
+    def test_update_failed_message_count_reset_on_success(self):
+        # Setup
+        identity = self.make_identity()
+        identity.failed_message_count = 2
+        identity.save()
+        data = {
+            "identity": str(identity.id),
+            "delivered": True,
+        }
+        # Execute
+        response = self.client.post('/api/v1/identities/message_count/',
+                                    json.dumps(data),
+                                    content_type='application/json')
+        # Check
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        d = Identity.objects.last()
+        self.assertEqual(d.failed_message_count, 0)
+
 
 class TestOptInAPI(AuthenticatedAPITestCase):
     def test_create_optin_with_identity(self):
