@@ -974,8 +974,9 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         # Setup
         identity = self.make_identity()
         data = {
-            "identity": str(identity.id),
-            "delivered": False,
+            "data": {
+                "identity": str(identity.id),
+                "delivered": False, }
         }
         # Execute
         response = self.client.post('/api/v1/identities/message_count/',
@@ -990,8 +991,9 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         # Setup
         self.make_identity()
         data = {
-            "to_addr": "+27123",
-            "delivered": False,
+            "data": {
+                "to_addr": "+27123",
+                "delivered": False, }
         }
         # Execute
         response = self.client.post('/api/v1/identities/message_count/',
@@ -1015,8 +1017,9 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         identity.failed_message_count = 4
         identity.save()
         data = {
-            "identity": str(identity.id),
-            "delivered": False,
+            "data": {
+                "identity": str(identity.id),
+                "delivered": False, }
         }
         # Execute
         response = self.client.post('/api/v1/identities/message_count/',
@@ -1040,8 +1043,9 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         identity.failed_message_count = 2
         identity.save()
         data = {
-            "identity": str(identity.id),
-            "delivered": True,
+            "data": {
+                "identity": str(identity.id),
+                "delivered": True, }
         }
         # Execute
         response = self.client.post('/api/v1/identities/message_count/',

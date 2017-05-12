@@ -187,15 +187,19 @@ class UpdateFailedMessageCount(APIView):
     permission_classes = (IsAuthenticated,)
 
     def post(self, request, *args, **kwargs):
-        data = request.data
-        if data.get('identity', None) is not None:
+        try:
+            # The hooks send the request data as {"hook":{}, "data":{}}
+            data = request.data['data']
+        except KeyError:
+            raise ValidationError('"data" must be supplied')
+        if data.get('identity', None) is not None and data['identity'] != "":
             identity = Identity.objects.get(pk=data['identity'])
-        elif data.get('to_addr', None) is not None:
+        elif data.get('to_addr', None) is not None and data['to_addr'] != "":
             identity = Identity.objects.get(
                 details__addresses__msisdn__has_key=data['to_addr'])
         else:
             raise ValidationError(
-                'One of "identity" or "to_addr" must be supplied')
+                '"data" must contain either "identity" or "to_addr" keys')
 
         if data['delivered']:
             identity.failed_message_count = 0
