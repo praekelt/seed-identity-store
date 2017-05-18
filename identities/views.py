@@ -10,6 +10,7 @@ from rest_hooks.signals import raw_hook_event
 from django.conf import settings
 from django.contrib.auth.models import User, Group
 from django.core.exceptions import FieldError
+from django.db.models.expressions import F
 from .models import Identity, OptOut, OptIn, DetailKey
 from .serializers import (UserSerializer, GroupSerializer, AddressSerializer,
                           IdentitySerializer, OptOutSerializer, HookSerializer,
@@ -209,8 +210,8 @@ class UpdateFailedMessageCount(APIView):
         if data['delivered']:
             identity.failed_message_count = 0
         else:
-            identity.failed_message_count += 1
-        identity.save()
+            identity.failed_message_count = F('failed_message_count') + 1
+        identity.save(update_fields=['failed_message_count'])
         identity.refresh_from_db()
 
         if identity.failed_message_count >= \
