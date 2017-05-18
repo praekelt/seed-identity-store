@@ -195,8 +195,13 @@ class UpdateFailedMessageCount(APIView):
         if data.get('identity', None) is not None and data['identity'] != "":
             identity = Identity.objects.get(pk=data['identity'])
         elif data.get('to_addr', None) is not None and data['to_addr'] != "":
-            identity = Identity.objects.get(
-                details__addresses__msisdn__has_key=data['to_addr'])
+            identities = Identity.objects\
+                .filter(details__addresses__msisdn__has_key=data['to_addr'])\
+                .order_by('id')
+            if len(identities) > 0:
+                identity = identities[0]
+            else:
+                raise ValidationError('No identity found for given address')
         else:
             raise ValidationError(
                 '"data" must contain either "identity" or "to_addr" keys')
