@@ -1056,6 +1056,43 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         d = Identity.objects.last()
         self.assertEqual(d.failed_message_count, 0)
 
+    def test_update_failed_message_count_no_identity_supplied(self):
+        """
+        If neither the identity or to_addr fields are populated, we should get
+        an error returned to us.
+        """
+        data = {
+            "data": {
+                "delivered": True,
+            }
+        }
+
+        response = self.client.post(
+            '/api/v1/identities/message_count/', json.dumps(data),
+            content_type='application/json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data, [
+            '"data" must contain either "identity" or "to_addr" keys'])
+
+    def test_update_failed_message_count_nonexisting_address(self):
+        """
+        If an address is supplied, that doesn't belong to any identity, then
+        an error should be returned.
+        """
+        data = {
+            "data": {
+                "to_addr": "invalid-address",
+                "delivered": True,
+            }
+        }
+
+        response = self.client.post(
+            '/api/v1/identities/message_count/', json.dumps(data),
+            content_type='application/json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data, [
+            'No identity found for given address'])
+
 
 class TestOptInAPI(AuthenticatedAPITestCase):
     def test_create_optin_with_identity(self):
