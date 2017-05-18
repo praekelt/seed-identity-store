@@ -149,7 +149,8 @@ HOOK_EVENTS = {
     # 'any.event.name': 'App.Model.Action' (created/updated/deleted)
     'optout.requested': None,
     'optin.requested': None,
-    'identity.created': 'identities.Identity.created+'
+    'identity.created': 'identities.Identity.created+',
+    'identity.max_failures': None,
 }
 
 HOOK_DELIVERER = 'identities.tasks.deliver_hook_wrapper'
@@ -237,3 +238,7 @@ if PAPERTRAIL:
         port=int(PAPERTRAIL_PORT),
         system=os.environ.get('MARATHON_APP_DOCKER_IMAGE', 'seed'),
         program=os.environ.get('MESOS_TASK_ID', 'identity_store'))
+
+
+MAX_CONSECUTIVE_SEND_FAILURES = os.environ.get("MAX_CONSECUTIVE_SEND_FAILURES",
+                                               5)

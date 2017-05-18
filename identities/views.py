@@ -6,8 +6,11 @@ from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework import filters
 from rest_hooks.models import Hook
+from rest_hooks.signals import raw_hook_event
+from django.conf import settings
 from django.contrib.auth.models import User, Group
 from django.core.exceptions import FieldError
+from django.db.models.expressions import F
 from .models import Identity, OptOut, OptIn, DetailKey
 from .serializers import (UserSerializer, GroupSerializer, AddressSerializer,
                           IdentitySerializer, OptOutSerializer, HookSerializer,
@@ -164,6 +167,58 @@ class IdentitySearchList(generics.ListAPIView):
                             id=identity.id)
 
         return identities
+
+
+def fire_max_send_failures_hook(user, identity):
+        raw_hook_event.send(
+            sender=None,
+            event_name='identity.max_failures',
+            payload={
+                'identity_id': str(identity.id),
+                'failure_count': identity.failed_message_count
+            },
+            user=user
+        )
+
+
+class UpdateFailedMessageCount(APIView):
+    """ Increments failed_message_count for a given Identity and triggers hook
+        if max failures reached
+    """
+    permission_classes = (IsAuthenticated,)
+
+    def post(self, request, *args, **kwargs):
+        try:
+            # The hooks send the request data as {"hook":{}, "data":{}}
+            data = request.data['data']
+        except KeyError:
+            raise ValidationError('"data" must be supplied')
+        if data.get('identity', None) is not None and data['identity'] != "":
+            identity = Identity.objects.get(pk=data['identity'])
+        elif data.get('to_addr', None) is not None and data['to_addr'] != "":
+            identities = Identity.objects\
+                .filter(details__addresses__msisdn__has_key=data['to_addr'])\
+                .order_by('id')
+            if len(identities) > 0:
+                identity = identities[0]
+            else:
+                raise ValidationError('No identity found for given address')
+        else:
+            raise ValidationError(
+                '"data" must contain either "identity" or "to_addr" keys')
+
+        if data['delivered']:
+            identity.failed_message_count = 0
+        else:
+            identity.failed_message_count = F('failed_message_count') + 1
+        identity.save(update_fields=['failed_message_count'])
+        identity.refresh_from_db()
+
+        if identity.failed_message_count >= \
+                settings.MAX_CONSECUTIVE_SEND_FAILURES:
+            fire_max_send_failures_hook(request.user, identity)
+
+        return Response(status=status.HTTP_200_OK)
 
 
 class Address(object):
