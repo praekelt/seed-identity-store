@@ -48,7 +48,7 @@ setup(
         'redis==2.10.5',
         'pytz==2015.7',
         'django-rest-hooks==1.3.1',
-        'go-http==0.3.0',
+        'seed-services-client>=0.21.0',
         'drfdocs==0.0.11',
         'seed-papertrail>=1.5.1',
     ],

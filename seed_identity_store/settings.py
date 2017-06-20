@@ -226,7 +226,10 @@ CELERYD_MAX_TASKS_PER_CHILD = 50
 djcelery.setup_loader()
 
 METRICS_URL = os.environ.get("METRICS_URL", None)
-METRICS_AUTH_TOKEN = os.environ.get("METRICS_AUTH_TOKEN", "REPLACEME")
+METRICS_AUTH = (
+    os.environ.get("METRICS_AUTH_USER", "REPLACEME"),
+    os.environ.get("METRICS_AUTH_PASSWORD", "REPLACEME"),
+)
 
 
 PAPERTRAIL = os.environ.get('PAPERTRAIL')

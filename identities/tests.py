@@ -15,7 +15,7 @@ from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
 from rest_hooks.models import Hook
 from requests_testadapter import TestAdapter, TestSession
-from go_http.metrics import MetricsApiClient
+from seed_services_client.metrics import MetricsApiClient
 
 from .models import (Identity, OptOut, OptIn, DetailKey, handle_optout,
                      handle_optin, fire_metrics_if_new, fire_optout_metric)
@@ -66,15 +66,15 @@ class AuthenticatedAPITestCase(APITestCase):
 
     def _replace_get_metric_client(self, session=None):
         return MetricsApiClient(
-            auth_token=settings.METRICS_AUTH_TOKEN,
-            api_url=settings.METRICS_URL,
+            url=settings.METRICS_URL,
+            auth=settings.METRICS_AUTH,
             session=self.session)
 
     def _restore_get_metric_client(self, session=None):
         return MetricsApiClient(
-            auth_token=settings.METRICS_AUTH_TOKEN,
-            api_url=settings.METRICS_URL,
-            session=session)
+            url=settings.METRICS_URL,
+            auth=settings.METRICS_AUTH,
+            session=self.session)
 
     def _replace_post_save_hooks(self):
         post_save.disconnect(handle_optout, sender=Identity)
@@ -1599,9 +1599,17 @@ class TestMetrics(AuthenticatedAPITestCase):
             "http://metrics-url/metrics/", adapter)
         return adapter
 
+    @responses.activate
     def test_direct_fire(self):
-        # Setup
-        adapter = self._mount_session()
+        """
+        When calling the `fire_metric` task directly, it should make a POST
+        request to the correct endpoint, with the specified metric data.
+        """
+        self.session = None
+        responses.add(
+            responses.POST, "http://metrics-url/metrics/", json={}, status=200,
+            content_type='application/json')
+
         # Execute
         result = fire_metric.apply_async(kwargs={
             "metric_name": 'foo.last',
@@ -1609,16 +1617,25 @@ class TestMetrics(AuthenticatedAPITestCase):
             "session": self.session
         })
         # Check
+        request = responses.calls[-1].request
         self.check_request(
-            adapter.request, 'POST',
+            request, 'POST',
             data={"foo.last": 1.0}
         )
         self.assertEqual(result.get(),
                          "Fired metric <foo.last> with value <1.0>")
 
-    def test_created_metrics(self):
-        # Setup
-        adapter = self._mount_session()
+    @responses.activate
+    def test_create_identity_sum_metric(self):
+        """
+        When a new identity is created, it should run the `fire_metric` task
+        for the `sum` metric type with a total of 1.
+        """
+        self.session = None
+        responses.add(
+            responses.POST, "http://metrics-url/metrics/", json={}, status=200,
+            content_type='application/json')
+
         # reconnect metric post_save hook
         post_save.connect(fire_metrics_if_new, sender=Identity)
 
@@ -1626,8 +1643,9 @@ class TestMetrics(AuthenticatedAPITestCase):
         self.make_identity()
 
         # Check
+        request = responses.calls[-1].request
         self.check_request(
-            adapter.request, 'POST',
+            request, 'POST',
             data={"identities.created.sum": 1.0}
         )
         # remove post_save hooks to prevent teardown errors
@@ -1708,9 +1726,18 @@ class TestMetrics(AuthenticatedAPITestCase):
         # fire_messagesets_tasks fires two metrics, therefore extra call
         self.assertEqual(len(responses.calls), 1)
 
-    def test_fire_created_last(self):
-        # Setup
-        adapter = self._mount_session()
+    @responses.activate
+    def test_fire_identity_created_last(self):
+        """
+        When a new identity is created, it should run the `fire_metric` task
+        with the correct details for the total amount of created identities,
+        with a `last` metric type.
+        """
+        self.session = None
+        responses.add(
+            responses.POST, "http://metrics-url/metrics/", json={}, status=200,
+            content_type='application/json')
+
         # make two identities
         self.make_identity()
         self.make_identity()
@@ -1723,17 +1750,21 @@ class TestMetrics(AuthenticatedAPITestCase):
             result.get().get(),
             "Fired metric <identities.created.last> with value <2.0>"
         )
+        request = responses.calls[-1].request
         self.check_request(
-            adapter.request, 'POST',
+            request, 'POST',
             data={"identities.created.last": 2.0}
         )
 
+    @responses.activate
     def test_update_msisdn_metric(self):
         """
         When a MSISDN is changed on a identity, a sum metric should be fired
         """
-        # Setup
-        adapter = self._mount_session()
+        self.session = None
+        responses.add(
+            responses.POST, "http://metrics-url/metrics/", json={}, status=200,
+            content_type='application/json')
 
         identity = self.make_identity()
         new_details = {
@@ -1748,18 +1779,22 @@ class TestMetrics(AuthenticatedAPITestCase):
         identity.save()
 
         # Check
+        request = responses.calls[-1].request
         self.check_request(
-            adapter.request, 'POST',
+            request, 'POST',
             data={"identities.change.msisdn.sum": 1.0}
         )
 
+    @responses.activate
     def test_update_msisdn_metric_negative(self):
         """
         When the details of the identity is updated and the MSISDN remains the
         same, no metric request should be made
         """
-        # Setup
-        adapter = self._mount_session()
+        self.session = None
+        responses.add(
+            responses.POST, "http://metrics-url/metrics/", json={}, status=200,
+            content_type='application/json')
 
         identity = self.make_identity()
         new_details = {
@@ -1774,14 +1809,17 @@ class TestMetrics(AuthenticatedAPITestCase):
         identity.save()
 
         # Check
-        self.assertEqual(adapter.request, None)
+        self.assertEqual(len(responses.calls), 0)
 
+    @responses.activate
     def test_update_email_metric(self):
         """
         When a email is changed on a identity, a sum metric should be fired
         """
-        # Setup
-        adapter = self._mount_session()
+        self.session = None
+        responses.add(
+            responses.POST, "http://metrics-url/metrics/", json={}, status=200,
+            content_type='application/json')
 
         identity = self.make_identity()
         new_details = {
@@ -1796,7 +1834,8 @@ class TestMetrics(AuthenticatedAPITestCase):
         identity.save()
 
         # Check
+        request = responses.calls[-1].request
         self.check_request(
-            adapter.request, 'POST',
+            request, 'POST',
             data={"identities.change.email.sum": 1.0}
         )
