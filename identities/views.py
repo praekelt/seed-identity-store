@@ -126,7 +126,6 @@ class IdentitySearchList(generics.ListAPIView):
         {"include_inactive": False}
         """
         query_params = list(self.request.query_params.keys())
-        print query_params
 
         # variable that stores criteria to filter identities by
         filter_criteria = {}
