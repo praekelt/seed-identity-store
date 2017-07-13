@@ -210,7 +210,10 @@ class UpdateFailedMessageCount(APIView):
         if data['delivered']:
             identity.failed_message_count = 0
         else:
-            identity.failed_message_count = F('failed_message_count') + 1
+            if identity.failed_message_count is None:
+                identity.failed_message_count = 1
+            else:
+                identity.failed_message_count = F('failed_message_count') + 1
         identity.save(update_fields=['failed_message_count'])
         identity.refresh_from_db()
 
