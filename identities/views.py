@@ -4,7 +4,6 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
-from rest_framework.pagination import CursorPagination, LimitOffsetPagination
 from rest_framework import filters
 from rest_hooks.models import Hook
 from rest_hooks.signals import raw_hook_event
@@ -21,21 +20,12 @@ from .tasks import scheduled_metrics
 import django_filters
 
 
-class CreatedAtCursorPagination(CursorPagination):
-    ordering = "-created_at"
-
-
-class IdCursorPagination(CursorPagination):
-    ordering = "-id"
-
-
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
     """ API endpoint that allows users to be viewed or edited.
     """
     permission_classes = (IsAuthenticated,)
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    pagination_class = IdCursorPagination
 
 
 class GroupViewSet(viewsets.ReadOnlyModelViewSet):
@@ -44,7 +34,6 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = (IsAuthenticated,)
     queryset = Group.objects.all()
     serializer_class = GroupSerializer
-    pagination_class = IdCursorPagination
 
 
 class UserView(APIView):
@@ -94,7 +83,6 @@ class IdentityViewSet(viewsets.ModelViewSet):
     queryset = Identity.objects.all()
     serializer_class = IdentitySerializer
     filter_class = IdentityFilter
-    pagination_class = CreatedAtCursorPagination
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user,
@@ -107,7 +95,6 @@ class IdentityViewSet(viewsets.ModelViewSet):
 class IdentitySearchList(generics.ListAPIView):
     permission_classes = (IsAuthenticated,)
     serializer_class = IdentitySerializer
-    pagination_class = CreatedAtCursorPagination
 
     def get_queryset(self):
         """
@@ -147,9 +134,8 @@ class IdentitySearchList(generics.ListAPIView):
         # Compile a list of criteria to filter the identities by, based on the
         # query parameters
         for filter in query_params:
-            if filter in ["include_inactive", "cursor"]:
+            if filter == "include_inactive":
                 # Don't add the special param to the filter_criteria
-                # Don't add the cursor to the filter_criteria
                 pass
             elif filter.startswith("details__addresses__"):
                 # Edit the query_param to evaluate the key instead of the value
@@ -246,7 +232,6 @@ class Address(object):
 class IdentityAddresses(generics.ListAPIView):
     permission_classes = (IsAuthenticated,)
     serializer_class = AddressSerializer
-    pagination_class = LimitOffsetPagination
 
     def get_queryset(self):
         """
@@ -319,7 +304,6 @@ class OptOutViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
 class OptOutSearchList(generics.ListAPIView):
     permission_classes = (IsAuthenticated,)
     serializer_class = OptOutSerializer
-    pagination_class = CreatedAtCursorPagination
 
     def get_queryset(self):
         try:
