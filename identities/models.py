@@ -41,6 +41,9 @@ class Identity(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     version = models.IntegerField(default=1)
     details = JSONField()
+    failed_message_count = models.IntegerField(
+        default=0, help_text='Count of consecutive failed messages to user',
+        null=True, blank=True)
     communicate_through = models.ForeignKey(
         'self', related_name='identities_communicate_through',
         null=True, blank=True)

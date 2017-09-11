@@ -3,7 +3,7 @@ import uuid
 import requests
 from celery.task import Task
 from django.conf import settings
-from go_http.metrics import MetricsApiClient
+from seed_services_client.metrics import MetricsApiClient
 from .models import Identity, DetailKey
 from seed_papertrail.decorators import papertrail
 
@@ -41,8 +41,8 @@ def deliver_hook_wrapper(target, payload, instance, hook):
 
 def get_metric_client(session=None):
     return MetricsApiClient(
-        auth_token=settings.METRICS_AUTH_TOKEN,
-        api_url=settings.METRICS_URL,
+        url=settings.METRICS_URL,
+        auth=settings.METRICS_AUTH,
         session=session)
 
 
@@ -60,7 +60,7 @@ class FireMetric(Task):
         }
         try:
             metric_client = get_metric_client(session=session)
-            metric_client.fire(metric)
+            metric_client.fire_metrics(**metric)
             return "Fired metric <%s> with value <%s>" % (
                 metric_name, metric_value)
         except (requests.exceptions.HTTPError,) as e:

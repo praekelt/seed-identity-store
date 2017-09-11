@@ -17,6 +17,9 @@ router.register(r'webhook', views.HookViewSet)
 urlpatterns = [
     url(r'^api/v1/identities/search/$',
         papertrail.debug(sample=0.1)(views.IdentitySearchList.as_view())),
+    url(r'^api/v1/identities/message_count/$',
+        papertrail.debug(sample=0.1)(views.UpdateFailedMessageCount.as_view())
+        ),
     url(r'^api/v1/identities/(?P<identity_id>.+)/addresses/(?P<address_type>.+)$',  # noqa
         papertrail.debug(sample=0.1)(views.IdentityAddresses.as_view())),
     url(r'^api/v1/user/token/$',

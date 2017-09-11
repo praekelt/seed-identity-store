@@ -149,7 +149,8 @@ HOOK_EVENTS = {
     # 'any.event.name': 'App.Model.Action' (created/updated/deleted)
     'optout.requested': None,
     'optin.requested': None,
-    'identity.created': 'identities.Identity.created+'
+    'identity.created': 'identities.Identity.created+',
+    'identity.max_failures': None,
 }
 
 HOOK_DELIVERER = 'identities.tasks.deliver_hook_wrapper'
@@ -225,7 +226,10 @@ CELERYD_MAX_TASKS_PER_CHILD = 50
 djcelery.setup_loader()
 
 METRICS_URL = os.environ.get("METRICS_URL", None)
-METRICS_AUTH_TOKEN = os.environ.get("METRICS_AUTH_TOKEN", "REPLACEME")
+METRICS_AUTH = (
+    os.environ.get("METRICS_AUTH_USER", "REPLACEME"),
+    os.environ.get("METRICS_AUTH_PASSWORD", "REPLACEME"),
+)
 
 
 PAPERTRAIL = os.environ.get('PAPERTRAIL')
@@ -237,3 +241,7 @@ if PAPERTRAIL:
         port=int(PAPERTRAIL_PORT),
         system=os.environ.get('MARATHON_APP_DOCKER_IMAGE', 'seed'),
         program=os.environ.get('MESOS_TASK_ID', 'identity_store'))
+
+
+MAX_CONSECUTIVE_SEND_FAILURES = os.environ.get("MAX_CONSECUTIVE_SEND_FAILURES",
+                                               5)
