@@ -47,7 +47,6 @@ class GroupViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = IdCursorPagination
 
 
-
 class UserView(APIView):
     """ API endpoint that allows users creation and returns their token.
     Only admin users can do this to avoid permissions escalation.
