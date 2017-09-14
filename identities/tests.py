@@ -136,6 +136,18 @@ class TestLogin(AuthenticatedAPITestCase):
 
 class TestUserCreation(AuthenticatedAPITestCase):
 
+    def test_list_user(self):
+        response = self.client.get('/api/v1/user/')
+
+        body = response.json()
+        self.assertEqual(len(body['results']), 2)
+
+    def test_list_group(self):
+        response = self.client.get('/api/v1/group/')
+
+        body = response.json()
+        self.assertEqual(len(body['results']), 0)
+
     def test_create_user_and_token(self):
         # Setup
         user_request = {"email": "test@example.org"}
@@ -200,6 +212,51 @@ class TestUserCreation(AuthenticatedAPITestCase):
 
 
 class TestIdentityAPI(AuthenticatedAPITestCase):
+
+    def test_list_pagination_one_page(self):
+        identity = self.make_identity()
+
+        response = self.client.get('/api/v1/identities/')
+
+        body = response.json()
+        self.assertEqual(len(body['results']), 1)
+        self.assertEqual(body['results'][0]['id'], str(identity.id))
+        self.assertIsNone(body['previous'])
+        self.assertIsNone(body['next'])
+
+    def test_list_pagination_two_pages(self):
+        identities = []
+        for i in range(3):
+            identities.append(self.make_identity())
+
+        # Test first page
+        response = self.client.get('/api/v1/identities/')
+
+        body = response.json()
+        self.assertEqual(len(body['results']), 2)
+        self.assertEqual(body['results'][0]['id'], str(identities[2].id))
+        self.assertEqual(body['results'][1]['id'], str(identities[1].id))
+        self.assertIsNone(body['previous'])
+        self.assertIsNotNone(body['next'])
+
+        # Test next page
+        response = self.client.get(body['next'])
+
+        body = response.json()
+        self.assertEqual(len(body['results']), 1)
+        self.assertEqual(body['results'][0]['id'], str(identities[0].id))
+        self.assertIsNotNone(body['previous'])
+        self.assertIsNone(body['next'])
+
+        # Test going back to previous page works
+        response = self.client.get(body['previous'])
+
+        body = response.json()
+        self.assertEqual(len(body['results']), 2)
+        self.assertEqual(body['results'][0]['id'], str(identities[2].id))
+        self.assertEqual(body['results'][1]['id'], str(identities[1].id))
+        self.assertIsNone(body['previous'])
+        self.assertIsNotNone(body['next'])
 
     def test_read_optouts(self):
         # Setup
@@ -576,7 +633,15 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         self.assertEqual(response_include_inactive.status_code,
                          status.HTTP_200_OK)
         data_include = response_include_inactive.json()
-        self.assertEqual(len(data_include["results"]), 3)
+
+        # First page
+        self.assertEqual(len(data_include["results"]), 2)
+
+        # Second page
+        response_exclude_inactive_page2 = self.client.get(data_include['next'])
+
+        data_include_page2 = response_exclude_inactive_page2.json()
+        self.assertEqual(len(data_include_page2['results']), 1)
 
         self.assertEqual(response_exclude_inactive.status_code,
                          status.HTTP_200_OK)
@@ -1270,6 +1335,7 @@ class TestOptInAPI(AuthenticatedAPITestCase):
 
 
 class TestOptOutAPI(AuthenticatedAPITestCase):
+
     def test_create_optout_with_identity(self):
         # Setup
         identity = self.make_identity()
@@ -1350,6 +1416,12 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         self.assertEqual(
             response.json()[0],
             "There are multiple identities with this address.")
+
+    def test_list_webhook(self):
+        response = self.client.get('/api/v1/webhook/')
+
+        body = response.json()
+        self.assertEqual(len(body['results']), 0)
 
     def test_create_webhook(self):
         # Setup
