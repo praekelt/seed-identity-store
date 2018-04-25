@@ -1546,11 +1546,9 @@ class TestMetricsAPI(AuthenticatedAPITestCase):
         self.assertEqual(
             sorted(response.data["metrics_available"]), sorted([
                 'identities.created.sum',
-                'identities.created.last',
                 'identities.change.msisdn.sum',
                 'identities.change.email.sum',
                 'optout.sum',
-                'optout.total.last',
             ])
         )
 
@@ -1678,11 +1676,9 @@ class TestMetrics(AuthenticatedAPITestCase):
         OptOut.objects.create(**optout_data)
 
         # Check
-        self.assertEqual(len(responses.calls), 2)
-        [call1, call2] = responses.calls
+        self.assertEqual(len(responses.calls), 1)
+        [call1] = responses.calls
         self.assertEqual(json.loads(call1.request.body), {"optout.sum": 1.0})
-        self.assertEqual(json.loads(call2.request.body),
-                         {"optout.total.last": 2.0})
         # remove post_save hooks to prevent teardown errors
         post_save.disconnect(fire_optout_metric, sender=OptOut)
 
@@ -1722,39 +1718,8 @@ class TestMetrics(AuthenticatedAPITestCase):
         # Execute
         result = scheduled_metrics.apply_async()
         # Check
-        self.assertEqual(result.get(), "1 Scheduled metrics launched")
-        # fire_messagesets_tasks fires two metrics, therefore extra call
-        self.assertEqual(len(responses.calls), 1)
-
-    @responses.activate
-    def test_fire_identity_created_last(self):
-        """
-        When a new identity is created, it should run the `fire_metric` task
-        with the correct details for the total amount of created identities,
-        with a `last` metric type.
-        """
-        self.session = None
-        responses.add(
-            responses.POST, "http://metrics-url/metrics/", json={}, status=200,
-            content_type='application/json')
-
-        # make two identities
-        self.make_identity()
-        self.make_identity()
-
-        # Execute
-        result = tasks.fire_created_last.apply_async()
-
-        # Check
-        self.assertEqual(
-            result.get().get(),
-            "Fired metric <identities.created.last> with value <2.0>"
-        )
-        request = responses.calls[-1].request
-        self.check_request(
-            request, 'POST',
-            data={"identities.created.last": 2.0}
-        )
+        self.assertEqual(result.get(), "0 Scheduled metrics launched")
+        self.assertEqual(len(responses.calls), 0)
 
     @responses.activate
     def test_update_msisdn_metric(self):
