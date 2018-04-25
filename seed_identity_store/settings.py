@@ -204,17 +204,14 @@ ADDRESS_TYPES = ['msisdn', 'email']
 METRICS_REALTIME = [
     'identities.created.sum',
     'optout.sum',
-    'optout.total.last',
 ]
 
 METRICS_REALTIME.extend(
     ['identities.change.%s.sum' % at for at in ADDRESS_TYPES])
 
 METRICS_SCHEDULED = [
-    'identities.created.last'
 ]
 METRICS_SCHEDULED_TASKS = [
-    'fire_created_last'
 ]
 
 CELERY_TASK_SERIALIZER = 'json'
