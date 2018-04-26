@@ -4,7 +4,7 @@ import requests
 from celery.task import Task
 from django.conf import settings
 from seed_services_client.metrics import MetricsApiClient
-from .models import Identity, DetailKey
+from .models import DetailKey
 from seed_papertrail.decorators import papertrail
 
 
@@ -89,24 +89,6 @@ class ScheduledMetrics(Task):
 
 
 scheduled_metrics = ScheduledMetrics()
-
-
-class FireCreatedLast(Task):
-
-    """ Fires last created subscriptions count
-    """
-    name = "seed_identity_store.subscriptions.tasks.fire_created_last"
-
-    @papertrail.debug(name)
-    def run(self):
-        created_identities = Identity.objects.all().count()
-        return fire_metric.apply_async(kwargs={
-            "metric_name": 'identities.created.last',
-            "metric_value": created_identities
-        })
-
-
-fire_created_last = FireCreatedLast()
 
 
 class PopulateDetailKey(Task):
