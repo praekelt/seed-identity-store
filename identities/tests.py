@@ -1592,6 +1592,25 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
             }
         })
 
+    @responses.activate
+    def test_optout_forget_remove_address(self):
+        """
+        When a forget optout is created the msisdn should be removed.
+        """
+        # Setup
+        post_save.connect(receiver=handle_optout, sender=OptOut)
+        user = User.objects.get(username='testuser')
+        identity = self.make_identity()
+
+        optout = OptOut.objects.create(
+            identity=identity, created_by=user, request_source="test_source",
+            requestor_source_id=1, address_type="msisdn", address="+27123",
+            optout_type="forget")
+
+        optout.refresh_from_db()
+
+        self.assertEqual(optout.address, "redacted")
+
 
 class TestHealthcheckAPI(AuthenticatedAPITestCase):
 
