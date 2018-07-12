@@ -350,6 +350,7 @@ def handle_optout(sender, instance, created, **kwargs):
     if instance.optout_type == "forget":
         identity.remove_details(instance.user)
         OptOut.objects.filter(id=instance.id).update(address="redacted")
+        OptIn.objects.filter(identity=identity).update(address="redacted")
     elif instance.optout_type == "stop":
         identity.optout_address(scope="single",
                                 address_type=instance.address_type,

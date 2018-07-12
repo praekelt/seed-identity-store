@@ -1611,6 +1611,30 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
 
         self.assertEqual(optout.address, "redacted")
 
+    @responses.activate
+    def test_optout_forget_remove_address_from_optin(self):
+        """
+        When a forget optout is created the msisdn should be removed from all
+        optins for the identity.
+        """
+        # Setup
+        post_save.connect(receiver=handle_optout, sender=OptOut)
+        user = User.objects.get(username='testuser')
+        identity = self.make_identity()
+
+        optin = OptIn.objects.create(
+            identity=identity, created_by=user, request_source="test_source",
+            requestor_source_id=1, address_type="msisdn", address="+27123")
+
+        OptOut.objects.create(
+            identity=identity, created_by=user, request_source="test_source",
+            requestor_source_id=1, address_type="msisdn", address="+27123",
+            optout_type="forget")
+
+        optin.refresh_from_db()
+
+        self.assertEqual(optin.address, "redacted")
+
 
 class TestHealthcheckAPI(AuthenticatedAPITestCase):
 
