@@ -1636,8 +1636,6 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         self.assertEqual(optin.address, "redacted")
 
 
-
-
 class TestHealthcheckAPI(AuthenticatedAPITestCase):
 
     def test_healthcheck_read(self):
