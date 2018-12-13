@@ -7,16 +7,17 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [
-        ('identities', '0003_optout'),
-    ]
+    dependencies = [("identities", "0003_optout")]
 
     operations = [
         migrations.CreateModel(
-            name='DetailKey',
+            name="DetailKey",
             fields=[
-                ('key_name', models.CharField(max_length=200, primary_key=True, serialize=False)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
+                (
+                    "key_name",
+                    models.CharField(max_length=200, primary_key=True, serialize=False),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
             ],
-        ),
+        )
     ]

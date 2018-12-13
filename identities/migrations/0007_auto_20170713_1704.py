@@ -7,14 +7,17 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [
-        ('identities', '0006_identity_failed_message_count'),
-    ]
+    dependencies = [("identities", "0006_identity_failed_message_count")]
 
     operations = [
         migrations.AlterField(
-            model_name='identity',
-            name='failed_message_count',
-            field=models.IntegerField(blank=True, default=0, help_text=b'Count of consecutive failed messages to user', null=True),
-        ),
+            model_name="identity",
+            name="failed_message_count",
+            field=models.IntegerField(
+                blank=True,
+                default=0,
+                help_text=b"Count of consecutive failed messages to user",
+                null=True,
+            ),
+        )
     ]
