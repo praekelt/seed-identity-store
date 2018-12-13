@@ -1,4 +1,4 @@
-from seed_identity_store.settings import *  # flake8: noqa
+from seed_identity_store.settings import *  # noqa: F403
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'TESTSEKRET'
@@ -8,12 +8,12 @@ DEBUG = True
 
 TEMPLATE_DEBUG = True
 
-CELERY_EAGER_PROPAGATES_EXCEPTIONS = True
-CELERY_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
+CELERY_TASK_ALWAYS_EAGER = True
 BROKER_BACKEND = 'memory'
 
 METRICS_URL = "http://metrics-url"
 METRICS_AUTH_TOKEN = "REPLACEME"
 
 # REST Framework conf defaults
-REST_FRAMEWORK['PAGE_SIZE'] = 2
+REST_FRAMEWORK['PAGE_SIZE'] = 2  # noqa: F405

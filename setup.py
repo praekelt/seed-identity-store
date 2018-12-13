@@ -43,7 +43,7 @@ setup(
         'psycopg2==2.7.6.1',
         'raven==6.9.0',
         'django-filter==2.0.0',
-        'celery==3.1.24',
+        'celery==4.2.1',
         'django-rest-hooks==1.5.0',
         'seed-services-client>=0.31.0',
         'seed-papertrail>=1.5.1',
