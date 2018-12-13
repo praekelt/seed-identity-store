@@ -45,16 +45,16 @@ class Identity(models.Model):
         null=True, blank=True)
     communicate_through = models.ForeignKey(
         'self', related_name='identities_communicate_through',
-        null=True, blank=True)
+        null=True, blank=True, on_delete=models.SET_NULL)
     operator = models.ForeignKey(
         'self', related_name='identities_created_by',
-        null=True, blank=True)
+        null=True, blank=True, on_delete=models.SET_NULL)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(User, related_name='identities_created',
-                                   null=True)
+                                   null=True, on_delete=models.SET_NULL)
     updated_by = models.ForeignKey(User, related_name='identities_updated',
-                                   null=True)
+                                   null=True, on_delete=models.SET_NULL)
     user = property(lambda self: self.created_by)
 
     objects = IdentityManager()
@@ -155,7 +155,8 @@ class OptIn(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False,
                           help_text="UUID of this opt-in request.")
     identity = models.ForeignKey(Identity, null=True,
-                                 help_text="UUID for the identity opting in.")
+                                 help_text="UUID for the identity opting in.",
+                                 on_delete=models.SET_NULL)
     address_type = models.CharField(
         null=False, max_length=50, default="",
         help_text="Address type used to identify the identity.")
@@ -173,7 +174,8 @@ class OptIn(models.Model):
                                       help_text="Time request was received.")
     created_by = models.ForeignKey(User, related_name='optin_created',
                                    null=True,
-                                   help_text="User creating the OptIn")
+                                   help_text="User creating the OptIn",
+                                   on_delete=models.SET_NULL)
 
     user = property(lambda self: self.created_by)
 
@@ -249,7 +251,8 @@ class OptOut(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False,
                           help_text="UUID of this optout request.")
     identity = models.ForeignKey(Identity, null=True,
-                                 help_text="UUID for the identity opting out.")
+                                 help_text="UUID for the identity opting out.",
+                                 on_delete=models.SET_NULL)
     optout_type = models.CharField(
         null=False, max_length=20, default="stop", choices=OPTOUT_TYPE_CHOICES,
         help_text="Type of optout request.")
@@ -273,7 +276,8 @@ class OptOut(models.Model):
                                       help_text="Time request was received.")
     created_by = models.ForeignKey(User, related_name='optout_created',
                                    null=True,
-                                   help_text="User creating the OptOut")
+                                   help_text="User creating the OptOut",
+                                   on_delete=models.SET_NULL)
 
     user = property(lambda self: self.created_by)
 

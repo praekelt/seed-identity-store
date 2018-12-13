@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/1.9/ref/settings/
 from kombu import Exchange, Queue
 
 import os
-import djcelery
 import dj_database_url
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -40,26 +39,22 @@ INSTALLED_APPS = (
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # documentation
-    'rest_framework_docs',
     # 3rd party
     'raven.contrib.django.raven_compat',
     'rest_framework',
     'rest_framework.authtoken',
     'django_filters',
     'rest_hooks',
-    'djcelery',
     # us
     'identities',
 
 )
 
-MIDDLEWARE_CLASSES = (
+MIDDLEWARE = (
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 )
@@ -160,9 +155,6 @@ HOOK_DELIVERER = 'identities.tasks.deliver_hook_wrapper'
 HOOK_AUTH_TOKEN = os.environ.get('HOOK_AUTH_TOKEN', 'REPLACEME')
 
 # Celery configuration options
-CELERY_RESULT_BACKEND = 'djcelery.backends.database:DatabaseBackend'
-CELERYBEAT_SCHEDULER = 'djcelery.schedulers.DatabaseScheduler'
-
 BROKER_URL = os.environ.get('BROKER_URL', 'redis://localhost:6379/0')
 
 CELERY_DEFAULT_QUEUE = 'seed_identity_store'
@@ -221,8 +213,6 @@ CELERY_RESULT_SERIALIZER = 'json'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_IGNORE_RESULT = True
 CELERYD_MAX_TASKS_PER_CHILD = 50
-
-djcelery.setup_loader()
 
 METRICS_URL = os.environ.get("METRICS_URL", None)
 METRICS_AUTH = (

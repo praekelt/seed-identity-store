@@ -72,13 +72,13 @@ class UserView(APIView):
 
 class IdentityFilter(filters.FilterSet):
     """Filter for identities created, using ISO 8601 formatted dates"""
-    created_from = django_filters.IsoDateTimeFilter(name="created_at",
+    created_from = django_filters.IsoDateTimeFilter(field_name="created_at",
                                                     lookup_expr="gte")
-    created_to = django_filters.IsoDateTimeFilter(name="created_at",
+    created_to = django_filters.IsoDateTimeFilter(field_name="created_at",
                                                   lookup_expr="lte")
-    updated_from = django_filters.IsoDateTimeFilter(name="updated_at",
+    updated_from = django_filters.IsoDateTimeFilter(field_name="updated_at",
                                                     lookup_expr="gte")
-    updated_to = django_filters.IsoDateTimeFilter(name="updated_at",
+    updated_to = django_filters.IsoDateTimeFilter(field_name="updated_at",
                                                   lookup_expr="lte")
 
     class Meta:
@@ -93,7 +93,7 @@ class IdentityViewSet(viewsets.ModelViewSet):
     permission_classes = (IsAuthenticated,)
     queryset = Identity.objects.all()
     serializer_class = IdentitySerializer
-    filter_class = IdentityFilter
+    filterset_class = IdentityFilter
     pagination_class = CreatedAtCursorPagination
 
     def perform_create(self, serializer):
