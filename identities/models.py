@@ -1,12 +1,12 @@
 import uuid
 
-from django.contrib.postgres.fields import JSONField
 from django.contrib.auth.models import User
+from django.contrib.postgres.fields import JSONField
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.encoding import python_2_unicode_compatible
-from django.core.exceptions import ValidationError
 from rest_hooks.signals import raw_hook_event
 
 from seed_identity_store.settings import ADDRESS_TYPES

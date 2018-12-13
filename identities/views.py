@@ -1,31 +1,33 @@
-from rest_framework import viewsets, generics, mixins, status
-from rest_framework.exceptions import ValidationError
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.authtoken.models import Token
-from rest_framework.pagination import CursorPagination, LimitOffsetPagination
-from rest_hooks.models import Hook
-from rest_hooks.signals import raw_hook_event
+import django_filters
 from django.conf import settings
-from django.contrib.auth.models import User, Group
+from django.contrib.auth.models import Group, User
 from django.core.exceptions import FieldError
 from django.db.models.expressions import F
-from .models import Identity, OptOut, OptIn, DetailKey
-from .serializers import (
-    UserSerializer,
-    GroupSerializer,
-    AddressSerializer,
-    IdentitySerializer,
-    OptOutSerializer,
-    HookSerializer,
-    CreateUserSerializer,
-    OptInSerializer,
-)
-from seed_identity_store.utils import get_available_metrics
-from .tasks import scheduled_metrics
-import django_filters
 from django_filters import rest_framework as filters
+from rest_framework import generics, mixins, status, viewsets
+from rest_framework.authtoken.models import Token
+from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import CursorPagination, LimitOffsetPagination
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_hooks.models import Hook
+from rest_hooks.signals import raw_hook_event
+
+from seed_identity_store.utils import get_available_metrics
+
+from .models import DetailKey, Identity, OptIn, OptOut
+from .serializers import (
+    AddressSerializer,
+    CreateUserSerializer,
+    GroupSerializer,
+    HookSerializer,
+    IdentitySerializer,
+    OptInSerializer,
+    OptOutSerializer,
+    UserSerializer,
+)
+from .tasks import scheduled_metrics
 
 
 class CreatedAtCursorPagination(CursorPagination):

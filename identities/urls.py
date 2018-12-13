@@ -1,8 +1,8 @@
-from django.conf.urls import url, include
+from django.conf.urls import include, url
 from rest_framework import routers
-from . import views
-
 from seed_papertrail.decorators import papertrail
+
+from . import views
 
 router = routers.DefaultRouter()
 router.register(r"user", views.UserViewSet)

@@ -1,10 +1,12 @@
 import os
-from django.conf.urls import url
-from django.urls import include, path
-from django.contrib import admin
-from identities import views
+
 import rest_framework.authtoken.views as rf_views
+from django.conf.urls import url
+from django.contrib import admin
+from django.urls import include, path
 from rest_framework.documentation import include_docs_urls
+
+from identities import views
 
 admin.site.site_header = os.environ.get("IDENTITIES_TITLE", "Seed Identity Store Admin")
 

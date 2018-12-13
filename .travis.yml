@@ -14,6 +14,7 @@ script:
   - black --check .
   - createdb seed_identity_store
   - python manage.py makemigrations --dry-run | grep 'No changes detected' || (echo 'There are changes which require migrations.' && exit 1)
+  - isort -c -rc .
 deploy:
   provider: pypi
   user: praekelt.org

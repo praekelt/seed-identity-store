@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Identity, OptOut, OptIn
+from .models import Identity, OptIn, OptOut
 
 
 class IdentityAdmin(admin.ModelAdmin):

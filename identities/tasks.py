@@ -1,11 +1,13 @@
 import json
 import uuid
+
 import requests
 from celery.task import Task
 from django.conf import settings
-from seed_services_client.metrics import MetricsApiClient
-from .models import DetailKey
 from seed_papertrail.decorators import papertrail
+from seed_services_client.metrics import MetricsApiClient
+
+from .models import DetailKey
 
 
 class DeliverHook(Task):

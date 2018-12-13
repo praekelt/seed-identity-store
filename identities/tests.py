@@ -1,34 +1,34 @@
 import json
+
 import responses
+from django.conf import settings
+from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.test import TestCase
+from requests_testadapter import TestAdapter, TestSession
+from rest_framework import status
+from rest_framework.authtoken.models import Token
+from rest_framework.test import APIClient
+from rest_hooks.models import Hook
+from seed_services_client.metrics import MetricsApiClient
+
+from . import tasks
+from .models import (
+    DetailKey,
+    Identity,
+    OptIn,
+    OptOut,
+    fire_metrics_if_new,
+    fire_optout_metric,
+    handle_optin,
+    handle_optout,
+)
+from .tasks import deliver_hook_wrapper, fire_metric, scheduled_metrics
 
 try:
     from urllib.parse import urlparse
 except ImportError:
     from urlparse import urlparse
-
-from django.contrib.auth.models import User
-from django.db.models.signals import post_save
-from django.test import TestCase
-from django.conf import settings
-from rest_framework import status
-from rest_framework.test import APIClient
-from rest_framework.authtoken.models import Token
-from rest_hooks.models import Hook
-from requests_testadapter import TestAdapter, TestSession
-from seed_services_client.metrics import MetricsApiClient
-
-from .models import (
-    Identity,
-    OptOut,
-    OptIn,
-    DetailKey,
-    handle_optout,
-    handle_optin,
-    fire_metrics_if_new,
-    fire_optout_metric,
-)
-from .tasks import deliver_hook_wrapper, fire_metric, scheduled_metrics
-from . import tasks
 
 
 class RecordingAdapter(TestAdapter):
