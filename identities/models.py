@@ -387,5 +387,5 @@ def fire_detailkeys_if_new(sender, instance, created, **kwargs):
     from .tasks import populate_detail_key
     if created and instance.details is not None:
         populate_detail_key.apply_async(kwargs={
-            "key_names": instance.details.keys()
+            "key_names": list(instance.details.keys())
         })

@@ -5,7 +5,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.pagination import CursorPagination, LimitOffsetPagination
-from rest_framework import filters
 from rest_hooks.models import Hook
 from rest_hooks.signals import raw_hook_event
 from django.conf import settings
@@ -19,6 +18,7 @@ from .serializers import (UserSerializer, GroupSerializer, AddressSerializer,
 from seed_identity_store.utils import get_available_metrics
 from .tasks import scheduled_metrics
 import django_filters
+from django_filters import rest_framework as filters
 
 
 class CreatedAtCursorPagination(CursorPagination):
@@ -73,17 +73,17 @@ class UserView(APIView):
 class IdentityFilter(filters.FilterSet):
     """Filter for identities created, using ISO 8601 formatted dates"""
     created_from = django_filters.IsoDateTimeFilter(name="created_at",
-                                                    lookup_type="gte")
+                                                    lookup_expr="gte")
     created_to = django_filters.IsoDateTimeFilter(name="created_at",
-                                                  lookup_type="lte")
+                                                  lookup_expr="lte")
     updated_from = django_filters.IsoDateTimeFilter(name="updated_at",
-                                                    lookup_type="gte")
+                                                    lookup_expr="gte")
     updated_to = django_filters.IsoDateTimeFilter(name="updated_at",
-                                                  lookup_type="lte")
+                                                  lookup_expr="lte")
 
     class Meta:
         model = Identity
-        fields = ['details', 'communicate_through', 'operator',
+        fields = ['communicate_through', 'operator',
                   'created_at', 'created_by', 'updated_at', 'updated_by']
 
 
