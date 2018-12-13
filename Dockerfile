@@ -1,6 +1,6 @@
 # TODO: Add production Dockerfile to
 # https://github.com/praekeltfoundation/docker-seed
-FROM praekeltfoundation/django-bootstrap:py2
+FROM praekeltfoundation/django-bootstrap:py3
 
 COPY . /app
 RUN pip install -e .
