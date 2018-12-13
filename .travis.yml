@@ -1,7 +1,6 @@
 language: python
 python:
-  - "2.7"
-  - "3.4"
+  - "3.6"
 addons:
   postgresql: "9.4"
 services:
@@ -10,8 +9,8 @@ install:
   - "pip install -e ."
   - "pip install -r requirements-dev.txt"
 script:
-  - flake8 .
-  - py.test --ds=seed_identity_store.testsettings */tests.py
+  - flake8
+  - py.test
 deploy:
   provider: pypi
   user: praekelt.org
