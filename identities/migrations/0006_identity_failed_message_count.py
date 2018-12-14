@@ -7,14 +7,14 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [
-        ('identities', '0005_optin'),
-    ]
+    dependencies = [("identities", "0005_optin")]
 
     operations = [
         migrations.AddField(
-            model_name='identity',
-            name='failed_message_count',
-            field=models.IntegerField(default=0, help_text=b'Count of consecutive failed messages to user'),
-        ),
+            model_name="identity",
+            name="failed_message_count",
+            field=models.IntegerField(
+                default=0, help_text=b"Count of consecutive failed messages to user"
+            ),
+        )
     ]

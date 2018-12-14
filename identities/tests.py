@@ -1,32 +1,41 @@
 import json
+
 import responses
+from django.conf import settings
+from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.test import TestCase
+from requests_testadapter import TestAdapter, TestSession
+from rest_framework import status
+from rest_framework.authtoken.models import Token
+from rest_framework.test import APIClient
+from rest_hooks.models import Hook
+from seed_services_client.metrics import MetricsApiClient
+
+from . import tasks
+from .models import (
+    DetailKey,
+    Identity,
+    OptIn,
+    OptOut,
+    fire_metrics_if_new,
+    fire_optout_metric,
+    handle_optin,
+    handle_optout,
+)
+from .tasks import deliver_hook_wrapper, fire_metric, scheduled_metrics
 
 try:
     from urllib.parse import urlparse
 except ImportError:
     from urlparse import urlparse
 
-from django.contrib.auth.models import User
-from django.db.models.signals import post_save
-from django.test import TestCase
-from django.conf import settings
-from rest_framework import status
-from rest_framework.test import APIClient
-from rest_framework.authtoken.models import Token
-from rest_hooks.models import Hook
-from requests_testadapter import TestAdapter, TestSession
-from seed_services_client.metrics import MetricsApiClient
-
-from .models import (Identity, OptOut, OptIn, DetailKey, handle_optout,
-                     handle_optin, fire_metrics_if_new, fire_optout_metric)
-from .tasks import deliver_hook_wrapper, fire_metric, scheduled_metrics
-from . import tasks
-
 
 class RecordingAdapter(TestAdapter):
 
     """ Record the request that was handled by the adapter.
     """
+
     request = None
 
     def send(self, request, *args, **kw):
@@ -35,7 +44,6 @@ class RecordingAdapter(TestAdapter):
 
 
 class APITestCase(TestCase):
-
     def setUp(self):
         self.client = APIClient()
         self.adminclient = APIClient()
@@ -43,7 +51,6 @@ class APITestCase(TestCase):
 
 
 class AuthenticatedAPITestCase(APITestCase):
-
     def make_identity(self, id_data=None):
         if id_data is None:
             id_data = {
@@ -52,29 +59,25 @@ class AuthenticatedAPITestCase(APITestCase):
                     "default_addr_type": "msisdn",
                     "personnel_code": "12345",
                     "addresses": {
-                        "msisdn": {
-                            "+27123": {}
-                        },
+                        "msisdn": {"+27123": {}},
                         "email": {
                             "foo1@bar.com": {"default": True},
-                            "foo2@bar.com": {}
-                        }
-                    }
+                            "foo2@bar.com": {},
+                        },
+                    },
                 }
             }
         return Identity.objects.create(**id_data)
 
     def _replace_get_metric_client(self, session=None):
         return MetricsApiClient(
-            url=settings.METRICS_URL,
-            auth=settings.METRICS_AUTH,
-            session=self.session)
+            url=settings.METRICS_URL, auth=settings.METRICS_AUTH, session=self.session
+        )
 
     def _restore_get_metric_client(self, session=None):
         return MetricsApiClient(
-            url=settings.METRICS_URL,
-            auth=settings.METRICS_AUTH,
-            session=self.session)
+            url=settings.METRICS_URL, auth=settings.METRICS_AUTH, session=self.session
+        )
 
     def _replace_post_save_hooks(self):
         post_save.disconnect(handle_optout, sender=Identity)
@@ -94,21 +97,20 @@ class AuthenticatedAPITestCase(APITestCase):
         self._replace_post_save_hooks()
         tasks.get_metric_client = self._replace_get_metric_client
 
-        self.username = 'testuser'
-        self.password = 'testpass'
-        self.user = User.objects.create_user(self.username,
-                                             'testuser@example.com',
-                                             self.password)
+        self.username = "testuser"
+        self.password = "testpass"
+        self.user = User.objects.create_user(
+            self.username, "testuser@example.com", self.password
+        )
         token = Token.objects.create(user=self.user)
         self.token = token.key
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.token)
+        self.client.credentials(HTTP_AUTHORIZATION="Token " + self.token)
 
-        self.superuser = User.objects.create_superuser('testsu',
-                                                       'su@example.com',
-                                                       'dummypwd')
+        self.superuser = User.objects.create_superuser(
+            "testsu", "su@example.com", "dummypwd"
+        )
         sutoken = Token.objects.create(user=self.superuser)
-        self.adminclient.credentials(
-            HTTP_AUTHORIZATION='Token %s' % sutoken)
+        self.adminclient.credentials(HTTP_AUTHORIZATION="Token %s" % sutoken)
 
     def tearDown(self):
         self._restore_post_save_hooks()
@@ -116,113 +118,112 @@ class AuthenticatedAPITestCase(APITestCase):
 
 
 class TestLogin(AuthenticatedAPITestCase):
-
     def test_login(self):
         # Setup
-        post_auth = {"username": "testuser",
-                     "password": "testpass"}
+        post_auth = {"username": "testuser", "password": "testpass"}
         # Execute
-        request = self.client.post(
-            '/api/token-auth/', post_auth)
-        token = request.data.get('token', None)
+        request = self.client.post("/api/token-auth/", post_auth)
+        token = request.data.get("token", None)
         # Check
         self.assertIsNotNone(
-            token, "Could not receive authentication token on login post.")
+            token, "Could not receive authentication token on login post."
+        )
         self.assertEqual(
-            request.status_code, 200,
+            request.status_code,
+            200,
             "Status code on /api/token-auth was %s (should be 200)."
-            % request.status_code)
+            % request.status_code,
+        )
 
 
 class TestUserCreation(AuthenticatedAPITestCase):
-
     def test_list_user(self):
-        response = self.client.get('/api/v1/user/')
+        response = self.client.get("/api/v1/user/")
 
         body = response.json()
-        self.assertEqual(len(body['results']), 2)
+        self.assertEqual(len(body["results"]), 2)
 
     def test_list_group(self):
-        response = self.client.get('/api/v1/group/')
+        response = self.client.get("/api/v1/group/")
 
         body = response.json()
-        self.assertEqual(len(body['results']), 0)
+        self.assertEqual(len(body["results"]), 0)
 
     def test_create_user_and_token(self):
         # Setup
         user_request = {"email": "test@example.org"}
         # Execute
-        request = self.adminclient.post('/api/v1/user/token/', user_request)
-        token = request.json().get('token', None)
+        request = self.adminclient.post("/api/v1/user/token/", user_request)
+        token = request.json().get("token", None)
         # Check
-        self.assertIsNotNone(
-            token, "Could not receive authentication token on post.")
+        self.assertIsNotNone(token, "Could not receive authentication token on post.")
         self.assertEqual(
-            request.status_code, 201,
+            request.status_code,
+            201,
             "Status code on /api/v1/user/token/ was %s (should be 201)."
-            % request.status_code)
+            % request.status_code,
+        )
 
     def test_create_user_and_token_fail_nonadmin(self):
         # Setup
         user_request = {"email": "test@example.org"}
         # Execute
-        request = self.client.post('/api/v1/user/token/', user_request)
-        error = request.json().get('detail', None)
+        request = self.client.post("/api/v1/user/token/", user_request)
+        error = request.json().get("detail", None)
         # Check
-        self.assertIsNotNone(
-            error, "Could not receive error on post.")
+        self.assertIsNotNone(error, "Could not receive error on post.")
         self.assertEqual(
-            error, "You do not have permission to perform this action.",
-            "Error message was unexpected: %s."
-            % error)
+            error,
+            "You do not have permission to perform this action.",
+            "Error message was unexpected: %s." % error,
+        )
 
     def test_create_user_and_token_not_created(self):
         # Setup
         user_request = {"email": "test@example.org"}
         # Execute
-        request = self.adminclient.post('/api/v1/user/token/', user_request)
-        token = request.json().get('token', None)
+        request = self.adminclient.post("/api/v1/user/token/", user_request)
+        token = request.json().get("token", None)
         # And again, to get the same token
-        request2 = self.adminclient.post('/api/v1/user/token/', user_request)
-        token2 = request2.json().get('token', None)
+        request2 = self.adminclient.post("/api/v1/user/token/", user_request)
+        token2 = request2.json().get("token", None)
 
         # Check
         self.assertEqual(
-            token, token2,
-            "Tokens are not equal, should be the same as not recreated.")
+            token, token2, "Tokens are not equal, should be the same as not recreated."
+        )
 
     def test_create_user_new_token_nonadmin(self):
         # Setup
         user_request = {"email": "test@example.org"}
-        request = self.adminclient.post('/api/v1/user/token/', user_request)
-        token = request.json().get('token', None)
+        request = self.adminclient.post("/api/v1/user/token/", user_request)
+        token = request.json().get("token", None)
         cleanclient = APIClient()
-        cleanclient.credentials(HTTP_AUTHORIZATION='Token %s' % token)
+        cleanclient.credentials(HTTP_AUTHORIZATION="Token %s" % token)
         # Execute
-        request = cleanclient.post('/api/v1/user/token/', user_request)
-        error = request.json().get('detail', None)
+        request = cleanclient.post("/api/v1/user/token/", user_request)
+        error = request.json().get("detail", None)
         # Check
         # new user should not be admin
-        self.assertIsNotNone(
-            error, "Could not receive error on post.")
+        self.assertIsNotNone(error, "Could not receive error on post.")
         self.assertEqual(
-            error, "You do not have permission to perform this action.",
-            "Error message was unexpected: %s."
-            % error)
+            error,
+            "You do not have permission to perform this action.",
+            "Error message was unexpected: %s." % error,
+        )
 
 
 class TestIdentityAPI(AuthenticatedAPITestCase):
-
     def test_list_pagination_one_page(self):
         identity = self.make_identity()
 
-        response = self.client.get('/api/v1/identities/')
+        response = self.client.get("/api/v1/identities/")
 
         body = response.json()
-        self.assertEqual(len(body['results']), 1)
-        self.assertEqual(body['results'][0]['id'], str(identity.id))
-        self.assertIsNone(body['previous'])
-        self.assertIsNone(body['next'])
+        self.assertEqual(len(body["results"]), 1)
+        self.assertEqual(body["results"][0]["id"], str(identity.id))
+        self.assertIsNone(body["previous"])
+        self.assertIsNone(body["next"])
 
     def test_list_pagination_two_pages(self):
         identities = []
@@ -230,33 +231,33 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
             identities.append(self.make_identity())
 
         # Test first page
-        response = self.client.get('/api/v1/identities/')
+        response = self.client.get("/api/v1/identities/")
 
         body = response.json()
-        self.assertEqual(len(body['results']), 2)
-        self.assertEqual(body['results'][0]['id'], str(identities[2].id))
-        self.assertEqual(body['results'][1]['id'], str(identities[1].id))
-        self.assertIsNone(body['previous'])
-        self.assertIsNotNone(body['next'])
+        self.assertEqual(len(body["results"]), 2)
+        self.assertEqual(body["results"][0]["id"], str(identities[2].id))
+        self.assertEqual(body["results"][1]["id"], str(identities[1].id))
+        self.assertIsNone(body["previous"])
+        self.assertIsNotNone(body["next"])
 
         # Test next page
-        response = self.client.get(body['next'])
+        response = self.client.get(body["next"])
 
         body = response.json()
-        self.assertEqual(len(body['results']), 1)
-        self.assertEqual(body['results'][0]['id'], str(identities[0].id))
-        self.assertIsNotNone(body['previous'])
-        self.assertIsNone(body['next'])
+        self.assertEqual(len(body["results"]), 1)
+        self.assertEqual(body["results"][0]["id"], str(identities[0].id))
+        self.assertIsNotNone(body["previous"])
+        self.assertIsNone(body["next"])
 
         # Test going back to previous page works
-        response = self.client.get(body['previous'])
+        response = self.client.get(body["previous"])
 
         body = response.json()
-        self.assertEqual(len(body['results']), 2)
-        self.assertEqual(body['results'][0]['id'], str(identities[2].id))
-        self.assertEqual(body['results'][1]['id'], str(identities[1].id))
-        self.assertIsNone(body['previous'])
-        self.assertIsNotNone(body['next'])
+        self.assertEqual(len(body["results"]), 2)
+        self.assertEqual(body["results"][0]["id"], str(identities[2].id))
+        self.assertEqual(body["results"][1]["id"], str(identities[1].id))
+        self.assertIsNone(body["previous"])
+        self.assertIsNotNone(body["next"])
 
     def test_read_optouts(self):
         # Setup
@@ -271,9 +272,11 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         }
         OptOut.objects.create(**optout_data)
         # Execute
-        response = self.client.get('/api/v1/optouts/search/',
-                                   {"reason": "not good messages"},
-                                   content_type='application/json')
+        response = self.client.get(
+            "/api/v1/optouts/search/",
+            {"reason": "not good messages"},
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -292,17 +295,19 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         }
         OptOut.objects.create(**optout_data)
         # Execute
-        response = self.client.get('/api/v1/optouts/search/',
-                                   {"foo": "bar"},
-                                   content_type='application/json')
+        response = self.client.get(
+            "/api/v1/optouts/search/", {"foo": "bar"}, content_type="application/json"
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.json()[0].replace("u'", "'"),
-                         "Cannot resolve keyword 'foo' into field. Choices "
-                         "are: address, address_type, created_at, created_by, "
-                         "created_by_id, id, identity, identity_id, "
-                         "optout_type, reason, request_source, "
-                         "requestor_source_id")
+        self.assertEqual(
+            response.json()[0].replace("u'", "'"),
+            "Cannot resolve keyword 'foo' into field. Choices "
+            "are: address, address_type, created_at, created_by, "
+            "created_by_id, id, identity, identity_id, "
+            "optout_type, reason, request_source, "
+            "requestor_source_id",
+        )
 
     def test_read_optouts_filter(self):
         # Setup
@@ -317,9 +322,11 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         }
         OptOut.objects.create(**optout_data)
         # Execute
-        response = self.client.get('/api/v1/optouts/search/',
-                                   {"reason": "very good messages"},
-                                   content_type='application/json')
+        response = self.client.get(
+            "/api/v1/optouts/search/",
+            {"reason": "very good messages"},
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -329,8 +336,9 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         # Setup
         identity = self.make_identity()
         # Execute
-        response = self.client.get('/api/v1/identities/%s/' % identity.id,
-                                   content_type='application/json')
+        response = self.client.get(
+            "/api/v1/identities/%s/" % identity.id, content_type="application/json"
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         d = Identity.objects.last()
@@ -340,33 +348,31 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_read_identity_search_msisdn_single(self):
         # Setup
         self.make_identity()
-        self.make_identity(id_data={
-            "details": {
-                "name": "Test Name 2",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23456",
-                "addresses": {
-                    "msisdn": {
-                        "+27123": {}
-                    }
+        self.make_identity(
+            id_data={
+                "details": {
+                    "name": "Test Name 2",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23456",
+                    "addresses": {"msisdn": {"+27123": {}}},
                 }
             }
-        })
-        self.make_identity(id_data={
-            "version": 2,
-            "details": {
-                "name": "Test Name 3",
-                "addresses": {
-                    "msisdn": {
-                        "+27555": {}
-                    }
-                }
+        )
+        self.make_identity(
+            id_data={
+                "version": 2,
+                "details": {
+                    "name": "Test Name 3",
+                    "addresses": {"msisdn": {"+27555": {}}},
+                },
             }
-        })
+        )
         # Execute
-        response = self.client.get('/api/v1/identities/search/',
-                                   {"details__addresses__msisdn": "+27555"},
-                                   content_type='application/json')
+        response = self.client.get(
+            "/api/v1/identities/search/",
+            {"details__addresses__msisdn": "+27555"},
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -376,33 +382,31 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_read_identity_search_msisdn_multiple(self):
         # Setup
         self.make_identity()
-        self.make_identity(id_data={
-            "details": {
-                "name": "Test Name 2",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23456",
-                "addresses": {
-                    "msisdn": {
-                        "+27123": {}
-                    }
+        self.make_identity(
+            id_data={
+                "details": {
+                    "name": "Test Name 2",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23456",
+                    "addresses": {"msisdn": {"+27123": {}}},
                 }
             }
-        })
-        self.make_identity(id_data={
-            "version": 2,
-            "details": {
-                "name": "Test Name 3",
-                "addresses": {
-                    "msisdn": {
-                        "+27555": {}
-                    }
-                }
+        )
+        self.make_identity(
+            id_data={
+                "version": 2,
+                "details": {
+                    "name": "Test Name 3",
+                    "addresses": {"msisdn": {"+27555": {}}},
+                },
             }
-        })
+        )
         # Execute
-        response = self.client.get('/api/v1/identities/search/',
-                                   {"details__addresses__msisdn": "+27123"},
-                                   content_type='application/json')
+        response = self.client.get(
+            "/api/v1/identities/search/",
+            {"details__addresses__msisdn": "+27123"},
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -410,103 +414,89 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
 
     def test_read_identity_search_msisdn_inactive_filter(self):
         # Setup
-        self.make_identity(id_data={
-            "details": {
-                "name": "Test Name 2",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23456",
-                "addresses": {
-                    "msisdn": {
-                        "+27123": {"default": True, "inactive": True}
-                    }
+        self.make_identity(
+            id_data={
+                "details": {
+                    "name": "Test Name 2",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23456",
+                    "addresses": {
+                        "msisdn": {"+27123": {"default": True, "inactive": True}}
+                    },
                 }
             }
-        })
-        self.make_identity(id_data={
-            "version": 2,
-            "details": {
-                "name": "Test Name 4",
-                "addresses": {
-                    "msisdn": {
-                        "+27123": {}
-                    }
-                }
+        )
+        self.make_identity(
+            id_data={
+                "version": 2,
+                "details": {
+                    "name": "Test Name 4",
+                    "addresses": {"msisdn": {"+27123": {}}},
+                },
             }
-        })
+        )
         # Execute
         response_default = self.client.get(
-            '/api/v1/identities/search/',
-            {
-                "details__addresses__msisdn": "+27123"
-            },
-            content_type='application/json')
+            "/api/v1/identities/search/",
+            {"details__addresses__msisdn": "+27123"},
+            content_type="application/json",
+        )
         response_include_inactive = self.client.get(
-            '/api/v1/identities/search/',
-            {
-                "details__addresses__msisdn": "+27123",
-                "include_inactive": True
-            },
-            content_type='application/json')
+            "/api/v1/identities/search/",
+            {"details__addresses__msisdn": "+27123", "include_inactive": True},
+            content_type="application/json",
+        )
         response_exclude_inactive = self.client.get(
-            '/api/v1/identities/search/',
-            {
-                "details__addresses__msisdn": "+27123",
-                "include_inactive": False
-            },
-            content_type='application/json')
+            "/api/v1/identities/search/",
+            {"details__addresses__msisdn": "+27123", "include_inactive": False},
+            content_type="application/json",
+        )
         # Check
-        self.assertEqual(response_default.status_code,
-                         status.HTTP_200_OK)
+        self.assertEqual(response_default.status_code, status.HTTP_200_OK)
         data_default = response_default.json()
         self.assertEqual(len(data_default["results"]), 2)
 
-        self.assertEqual(response_include_inactive.status_code,
-                         status.HTTP_200_OK)
+        self.assertEqual(response_include_inactive.status_code, status.HTTP_200_OK)
         data_include = response_include_inactive.json()
         self.assertEqual(len(data_include["results"]), 2)
 
-        self.assertEqual(response_exclude_inactive.status_code,
-                         status.HTTP_200_OK)
+        self.assertEqual(response_exclude_inactive.status_code, status.HTTP_200_OK)
         data_exclude = response_exclude_inactive.json()
         self.assertEqual(len(data_exclude["results"]), 1)
-        self.assertEqual(data_exclude["results"][0]["details"]["name"],
-                         "Test Name 4")
+        self.assertEqual(data_exclude["results"][0]["details"]["name"], "Test Name 4")
 
     def test_read_identity_search_email(self):
         # Setup
         self.make_identity()
-        self.make_identity(id_data={
-            "details": {
-                "name": "Test Name 2",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23456",
-                "addresses": {
-                    "msisdn": {
-                        "+27123": {}
-                    }
+        self.make_identity(
+            id_data={
+                "details": {
+                    "name": "Test Name 2",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23456",
+                    "addresses": {"msisdn": {"+27123": {}}},
                 }
             }
-        })
-        self.make_identity(id_data={
-            "version": 2,
-            "details": {
-                "name": "Test Name 3",
-                "addresses": {
-                    "msisdn": {
-                        "+27555": {}
-                    }
-                }
+        )
+        self.make_identity(
+            id_data={
+                "version": 2,
+                "details": {
+                    "name": "Test Name 3",
+                    "addresses": {"msisdn": {"+27555": {}}},
+                },
             }
-        })
+        )
         # Execute
         response = self.client.get(
-            '/api/v1/identities/search/',
+            "/api/v1/identities/search/",
             {
                 "details__addresses__email": "foo1@bar.com",
                 "version": 1,
-                "include_inactive": True
+                "include_inactive": True,
             },
-            content_type='application/json')
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -515,171 +505,153 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
 
     def test_read_identity_search_msisdn_email_inactive_filter(self):
         # Setup
-        self.make_identity(id_data={
-            "details": {
-                "name": "Test Name 2",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23456",
-                "addresses": {
-                    "email": {
-                        "foo@bar.com": {"default": True, "inactive": True}
-                    }
+        self.make_identity(
+            id_data={
+                "details": {
+                    "name": "Test Name 2",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23456",
+                    "addresses": {
+                        "email": {"foo@bar.com": {"default": True, "inactive": True}}
+                    },
                 }
             }
-        })
-        self.make_identity(id_data={
-            "version": 2,
-            "details": {
-                "name": "Test Name 4",
-                "addresses": {
-                    "email": {
-                        "foo@bar.com": {}
-                    }
-                }
+        )
+        self.make_identity(
+            id_data={
+                "version": 2,
+                "details": {
+                    "name": "Test Name 4",
+                    "addresses": {"email": {"foo@bar.com": {}}},
+                },
             }
-        })
+        )
         # Execute
         response_include_inactive = self.client.get(
-            '/api/v1/identities/search/',
-            {
-                "details__addresses__email": "foo@bar.com",
-                "include_inactive": True
-            },
-            content_type='application/json')
+            "/api/v1/identities/search/",
+            {"details__addresses__email": "foo@bar.com", "include_inactive": True},
+            content_type="application/json",
+        )
         response_exclude_inactive = self.client.get(
-            '/api/v1/identities/search/',
-            {
-                "details__addresses__email": "foo@bar.com",
-                "include_inactive": False
-            },
-            content_type='application/json')
+            "/api/v1/identities/search/",
+            {"details__addresses__email": "foo@bar.com", "include_inactive": False},
+            content_type="application/json",
+        )
         # Check
-        self.assertEqual(response_include_inactive.status_code,
-                         status.HTTP_200_OK)
+        self.assertEqual(response_include_inactive.status_code, status.HTTP_200_OK)
         data_include = response_include_inactive.json()
         self.assertEqual(len(data_include["results"]), 2)
 
-        self.assertEqual(response_exclude_inactive.status_code,
-                         status.HTTP_200_OK)
+        self.assertEqual(response_exclude_inactive.status_code, status.HTTP_200_OK)
         data_exclude = response_exclude_inactive.json()
         self.assertEqual(len(data_exclude["results"]), 1)
-        self.assertEqual(data_exclude["results"][0]["details"]["name"],
-                         "Test Name 4")
+        self.assertEqual(data_exclude["results"][0]["details"]["name"], "Test Name 4")
 
     def test_read_identity_search_msisdn_email_and_msisdn(self):
         # Setup
         self.make_identity()
-        self.make_identity(id_data={
-            "details": {
-                "name": "Test Name 2",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23456",
-                "addresses": {
-                    "email": {
-                        "foo@bar.com": {"default": True, "inactive": True}
+        self.make_identity(
+            id_data={
+                "details": {
+                    "name": "Test Name 2",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23456",
+                    "addresses": {
+                        "email": {"foo@bar.com": {"default": True, "inactive": True}},
+                        "msisdn": {"+27123": {"default": True}},
                     },
-                    "msisdn": {
-                        "+27123": {"default": True}
-                    }
                 }
             }
-        })
-        self.make_identity(id_data={
-            "version": 2,
-            "details": {
-                "name": "Test Name 4",
-                "addresses": {
-                    "email": {
-                        "foo@bar.com": {}
+        )
+        self.make_identity(
+            id_data={
+                "version": 2,
+                "details": {
+                    "name": "Test Name 4",
+                    "addresses": {
+                        "email": {"foo@bar.com": {}},
+                        "msisdn": {"+27123": {}},
                     },
-                    "msisdn": {
-                        "+27123": {}
-                    }
-                }
+                },
             }
-        })
-        self.make_identity(id_data={
-            "version": 2,
-            "details": {
-                "name": "Test Name 5",
-                "addresses": {
-                    "email": {
-                        "foo@bar.com": {}
+        )
+        self.make_identity(
+            id_data={
+                "version": 2,
+                "details": {
+                    "name": "Test Name 5",
+                    "addresses": {
+                        "email": {"foo@bar.com": {}},
+                        "msisdn": {"+27123": {"inactive": True}},
                     },
-                    "msisdn": {
-                        "+27123": {"inactive": True}
-                    }
-                }
+                },
             }
-        })
+        )
         # Execute
         response_include_inactive = self.client.get(
-            '/api/v1/identities/search/',
+            "/api/v1/identities/search/",
             {
                 "details__addresses__email": "foo@bar.com",
                 "details__addresses__msisdn": "+27123",
-                "include_inactive": True
+                "include_inactive": True,
             },
-            content_type='application/json')
+            content_type="application/json",
+        )
         response_exclude_inactive = self.client.get(
-            '/api/v1/identities/search/',
+            "/api/v1/identities/search/",
             {
                 "details__addresses__email": "foo@bar.com",
                 "details__addresses__msisdn": "+27123",
-                "include_inactive": False
+                "include_inactive": False,
             },
-            content_type='application/json')
+            content_type="application/json",
+        )
         # Check
-        self.assertEqual(response_include_inactive.status_code,
-                         status.HTTP_200_OK)
+        self.assertEqual(response_include_inactive.status_code, status.HTTP_200_OK)
         data_include = response_include_inactive.json()
 
         # First page
         self.assertEqual(len(data_include["results"]), 2)
 
         # Second page
-        response_exclude_inactive_page2 = self.client.get(data_include['next'])
+        response_exclude_inactive_page2 = self.client.get(data_include["next"])
 
         data_include_page2 = response_exclude_inactive_page2.json()
-        self.assertEqual(len(data_include_page2['results']), 1)
+        self.assertEqual(len(data_include_page2["results"]), 1)
 
-        self.assertEqual(response_exclude_inactive.status_code,
-                         status.HTTP_200_OK)
+        self.assertEqual(response_exclude_inactive.status_code, status.HTTP_200_OK)
         data_exclude = response_exclude_inactive.json()
         self.assertEqual(len(data_exclude["results"]), 1)
-        self.assertEqual(data_exclude["results"][0]["details"]["name"],
-                         "Test Name 4")
+        self.assertEqual(data_exclude["results"][0]["details"]["name"], "Test Name 4")
 
     def test_read_identity_search_personnel_code(self):
         # Setup
         self.make_identity()
-        self.make_identity({
-            "details": {
-                "name": "Test Name 2",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23456",
-                "addresses": {
-                    "msisdn": {
-                        "+27123": {}
-                    }
+        self.make_identity(
+            {
+                "details": {
+                    "name": "Test Name 2",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23456",
+                    "addresses": {"msisdn": {"+27123": {}}},
                 }
             }
-        })
-        self.make_identity(id_data={
-            "version": 2,
-            "details": {
-                "name": "Test Name 3",
-                "addresses": {
-                    "msisdn": {
-                        "+27555": {}
-                    }
-                }
+        )
+        self.make_identity(
+            id_data={
+                "version": 2,
+                "details": {
+                    "name": "Test Name 3",
+                    "addresses": {"msisdn": {"+27555": {}}},
+                },
             }
-        })
+        )
         # Execute
-        response = self.client.get('/api/v1/identities/search/',
-                                   {"details__personnel_code": "23456"},
-                                   content_type='application/json')
+        response = self.client.get(
+            "/api/v1/identities/search/",
+            {"details__personnel_code": "23456"},
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -689,33 +661,31 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_read_identity_search_version(self):
         # Setup
         self.make_identity()
-        self.make_identity(id_data={
-            "details": {
-                "name": "Test Name 2",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23456",
-                "addresses": {
-                    "msisdn": {
-                        "+27123": {}
-                    }
+        self.make_identity(
+            id_data={
+                "details": {
+                    "name": "Test Name 2",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23456",
+                    "addresses": {"msisdn": {"+27123": {}}},
                 }
             }
-        })
-        self.make_identity(id_data={
-            "version": 2,
-            "details": {
-                "name": "Test Name 3",
-                "addresses": {
-                    "msisdn": {
-                        "+27555": {}
-                    }
-                }
+        )
+        self.make_identity(
+            id_data={
+                "version": 2,
+                "details": {
+                    "name": "Test Name 3",
+                    "addresses": {"msisdn": {"+27555": {}}},
+                },
             }
-        })
+        )
         # Execute
-        response = self.client.get('/api/v1/identities/search/',
-                                   {"version": 2},
-                                   content_type='application/json')
+        response = self.client.get(
+            "/api/v1/identities/search/",
+            {"version": 2},
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -725,35 +695,28 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_read_identity_search_communicate_through(self):
         # Setup
         self.make_identity()
-        test_id2 = self.make_identity(id_data={
-            "details": {
-                "name": "Test Name 2",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23456",
-                "addresses": {
-                    "msisdn": {
-                        "+27123": {}
-                    }
+        test_id2 = self.make_identity(
+            id_data={
+                "details": {
+                    "name": "Test Name 2",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23456",
+                    "addresses": {"msisdn": {"+27123": {}}},
                 }
             }
-        })
+        )
         test_id3 = {
             "version": 2,
-            "details": {
-                "name": "Test Name 3",
-                "addresses": {
-                    "msisdn": {
-                        "+27555": {}
-                    }
-                }
-            }
+            "details": {"name": "Test Name 3", "addresses": {"msisdn": {"+27555": {}}}},
         }.copy()
         test_id3["communicate_through"] = test_id2
         self.make_identity(id_data=test_id3)
         # Execute
-        response = self.client.get('/api/v1/identities/search/',
-                                   {"communicate_through": str(test_id2.id)},
-                                   content_type='application/json')
+        response = self.client.get(
+            "/api/v1/identities/search/",
+            {"communicate_through": str(test_id2.id)},
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -762,23 +725,22 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
 
     def test_read_identity_addresses_one_no_default(self):
         # Setup
-        identity = self.make_identity(id_data={
-            "details": {
-                "name": "Test One No Default",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23456",
-                "addresses": {
-                    "msisdn": {
-                        "+27124": {}
-                    }
+        identity = self.make_identity(
+            id_data={
+                "details": {
+                    "name": "Test One No Default",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23456",
+                    "addresses": {"msisdn": {"+27124": {}}},
                 }
             }
-        })
+        )
         # Execute
         response = self.client.get(
-            '/api/v1/identities/%s/addresses/msisdn' % identity,
+            "/api/v1/identities/%s/addresses/msisdn" % identity,
             {"default": "True"},
-            content_type='application/json')
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -787,24 +749,24 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
 
     def test_read_identity_addresses_two_with_default(self):
         # Setup
-        identity = self.make_identity(id_data={
-            "details": {
-                "name": "Test One No Default",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23456",
-                "addresses": {
-                    "msisdn": {
-                        "+27124": {},
-                        "+27125": {"default": True}
-                    }
+        identity = self.make_identity(
+            id_data={
+                "details": {
+                    "name": "Test One No Default",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23456",
+                    "addresses": {
+                        "msisdn": {"+27124": {}, "+27125": {"default": True}}
+                    },
                 }
             }
-        })
+        )
         # Execute
         response = self.client.get(
-            '/api/v1/identities/%s/addresses/msisdn' % identity,
+            "/api/v1/identities/%s/addresses/msisdn" % identity,
             {"default": "True"},
-            content_type='application/json')
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -813,24 +775,27 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
 
     def test_read_identity_addresses_two_with_optout(self):
         # Setup
-        identity = self.make_identity(id_data={
-            "details": {
-                "name": "Test One No Default",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23456",
-                "addresses": {
-                    "msisdn": {
-                        "+27124": {},
-                        "+27125": {"default": True, "optedout": True}
-                    }
+        identity = self.make_identity(
+            id_data={
+                "details": {
+                    "name": "Test One No Default",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23456",
+                    "addresses": {
+                        "msisdn": {
+                            "+27124": {},
+                            "+27125": {"default": True, "optedout": True},
+                        }
+                    },
                 }
             }
-        })
+        )
         # Execute
         response = self.client.get(
-            '/api/v1/identities/%s/addresses/msisdn' % identity,
+            "/api/v1/identities/%s/addresses/msisdn" % identity,
             {"default": "True"},
-            content_type='application/json')
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -839,38 +804,37 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
 
     def test_read_identity_addresses_with_communicate_through(self):
         # Setup
-        identity = self.make_identity(id_data={
-            "details": {
-                "name": "Test One No Default",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23456",
-                "addresses": {
-                    "msisdn": {
-                        "+27124": {},
-                        "+27125": {"default": True}
-                    }
+        identity = self.make_identity(
+            id_data={
+                "details": {
+                    "name": "Test One No Default",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23456",
+                    "addresses": {
+                        "msisdn": {"+27124": {}, "+27125": {"default": True}}
+                    },
                 }
             }
-        })
-        sub_identity = self.make_identity(id_data={
-            "communicate_through": identity,
-            "details": {
-                "name": "Test One CT",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23457",
-                "addresses": {
-                    "msisdn": {
-                        "+27321": {},
-                        "+27543": {"default": True}
-                    }
-                }
+        )
+        sub_identity = self.make_identity(
+            id_data={
+                "communicate_through": identity,
+                "details": {
+                    "name": "Test One CT",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23457",
+                    "addresses": {
+                        "msisdn": {"+27321": {}, "+27543": {"default": True}}
+                    },
+                },
             }
-        })
+        )
         # Execute
         response = self.client.get(
-            '/api/v1/identities/%s/addresses/msisdn' % sub_identity,
+            "/api/v1/identities/%s/addresses/msisdn" % sub_identity,
             {"default": "True", "use_communicate_through": "True"},
-            content_type='application/json')
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -879,38 +843,37 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
 
     def test_read_identity_addresses_without_communicate_through(self):
         # Setup
-        identity = self.make_identity(id_data={
-            "details": {
-                "name": "Test One No Default",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23456",
-                "addresses": {
-                    "msisdn": {
-                        "+27124": {},
-                        "+27125": {"default": True}
-                    }
+        identity = self.make_identity(
+            id_data={
+                "details": {
+                    "name": "Test One No Default",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23456",
+                    "addresses": {
+                        "msisdn": {"+27124": {}, "+27125": {"default": True}}
+                    },
                 }
             }
-        })
-        sub_identity = self.make_identity(id_data={
-            "communicate_through": identity,
-            "details": {
-                "name": "Test One CT",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23457",
-                "addresses": {
-                    "msisdn": {
-                        "+27321": {},
-                        "+27543": {"default": True}
-                    }
-                }
+        )
+        sub_identity = self.make_identity(
+            id_data={
+                "communicate_through": identity,
+                "details": {
+                    "name": "Test One CT",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23457",
+                    "addresses": {
+                        "msisdn": {"+27321": {}, "+27543": {"default": True}}
+                    },
+                },
             }
-        })
+        )
         # Execute
         response = self.client.get(
-            '/api/v1/identities/%s/addresses/msisdn' % sub_identity,
+            "/api/v1/identities/%s/addresses/msisdn" % sub_identity,
             {"default": "True"},
-            content_type='application/json')
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -926,14 +889,16 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
                 "default_addr_type": "email",
                 "addresses": {
                     "msisdn": {"+27123": {}},
-                    "email": {"foo1@bar.com": {}, "foo2@bar.com": {}}
-                }
+                    "email": {"foo1@bar.com": {}, "foo2@bar.com": {}},
+                },
             }
         }
         # Execute
-        response = self.client.patch('/api/v1/identities/%s/' % identity.id,
-                                     json.dumps(new_details),
-                                     content_type='application/json')
+        response = self.client.patch(
+            "/api/v1/identities/%s/" % identity.id,
+            json.dumps(new_details),
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         d = Identity.objects.last()
@@ -944,8 +909,9 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         # Setup
         identity = self.make_identity()
         # Execute
-        response = self.client.delete('/api/v1/identities/%s/' % identity.id,
-                                      content_type='application/json')
+        response = self.client.delete(
+            "/api/v1/identities/%s/" % identity.id, content_type="application/json"
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         d = Identity.objects.filter().count()
@@ -954,31 +920,31 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_create_identity(self):
         # Setup
         identity1 = self.make_identity()
-        identity2 = self.make_identity(id_data={
-            "details": {
-                "name": "Test Name 2",
-                "default_addr_type": "msisdn",
-                "personnel_code": "23456",
-                "addresses": {
-                    "msisdn": {
-                        "+27123": {}
-                    }
+        identity2 = self.make_identity(
+            id_data={
+                "details": {
+                    "name": "Test Name 2",
+                    "default_addr_type": "msisdn",
+                    "personnel_code": "23456",
+                    "addresses": {"msisdn": {"+27123": {}}},
                 }
             }
-        })
+        )
         post_identity = {
             "communicate_through": str(identity1.id),
             "operator": str(identity2.id),
             "details": {
                 "name": "Test Name",
                 "default_addr_type": "msisdn",
-                "addresses": "msisdn:+27123 email:foo@bar.com"
-            }
+                "addresses": "msisdn:+27123 email:foo@bar.com",
+            },
         }
         # Execute
-        response = self.client.post('/api/v1/identities/',
-                                    json.dumps(post_identity),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/identities/",
+            json.dumps(post_identity),
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         d = Identity.objects.get(id=response.data["id"])
@@ -987,13 +953,13 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
 
     def test_create_identity_no_details(self):
         # Setup
-        post_identity = {
-            "details": {}
-        }
+        post_identity = {"details": {}}
         # Execute
-        response = self.client.post('/api/v1/identities/',
-                                    json.dumps(post_identity),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/identities/",
+            json.dumps(post_identity),
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         d = Identity.objects.last()
@@ -1010,13 +976,11 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_create_identity_detailkeys_two_new(self):
         # Setup
         self.make_identity()
-        self.make_identity(id_data={
-            "details": {
-                "fresh": "as",
-                "default_addr_type": "msisdn",
-                "a": "daisy"
+        self.make_identity(
+            id_data={
+                "details": {"fresh": "as", "default_addr_type": "msisdn", "a": "daisy"}
             }
-        })
+        )
 
         # Check
         c = DetailKey.objects.all().count()
@@ -1027,8 +991,9 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         self.make_identity()
 
         # Execute
-        response = self.client.get('/api/v1/detailkeys/',
-                                   content_type='application/json')
+        response = self.client.get(
+            "/api/v1/detailkeys/", content_type="application/json"
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
@@ -1038,15 +1003,13 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_update_failed_message_count_identity_given(self):
         # Setup
         identity = self.make_identity()
-        data = {
-            "data": {
-                "identity": str(identity.id),
-                "delivered": False, }
-        }
+        data = {"data": {"identity": str(identity.id), "delivered": False}}
         # Execute
-        response = self.client.post('/api/v1/identities/message_count/',
-                                    json.dumps(data),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/identities/message_count/",
+            json.dumps(data),
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         d = Identity.objects.last()
@@ -1055,15 +1018,13 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_update_failed_message_count_address_given(self):
         # Setup
         self.make_identity()
-        data = {
-            "data": {
-                "to_addr": "+27123",
-                "delivered": False, }
-        }
+        data = {"data": {"to_addr": "+27123", "delivered": False}}
         # Execute
-        response = self.client.post('/api/v1/identities/message_count/',
-                                    json.dumps(data),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/identities/message_count/",
+            json.dumps(data),
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         d = Identity.objects.last()
@@ -1073,23 +1034,25 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_reached_max_failed_message_count(self):
         # Setup
         hook = Hook.objects.create(
-            user=self.user, event='identity.max_failures',
-            target='http://example.com')
-        responses.add(responses.POST, 'http://example.com',
-                      status=200, content_type='application/json')
+            user=self.user, event="identity.max_failures", target="http://example.com"
+        )
+        responses.add(
+            responses.POST,
+            "http://example.com",
+            status=200,
+            content_type="application/json",
+        )
 
         identity = self.make_identity()
         identity.failed_message_count = 4
         identity.save()
-        data = {
-            "data": {
-                "identity": str(identity.id),
-                "delivered": False, }
-        }
+        data = {"data": {"identity": str(identity.id), "delivered": False}}
         # Execute
-        response = self.client.post('/api/v1/identities/message_count/',
-                                    json.dumps(data),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/identities/message_count/",
+            json.dumps(data),
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         d = Identity.objects.last()
@@ -1097,25 +1060,26 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
 
         [r] = responses.calls
         r = json.loads(r.request.body)
-        self.assertEqual(r['hook'], {"id": hook.id, "event": hook.event,
-                                     "target": hook.target})
-        self.assertEqual(r['data'], {"identity_id": str(d.id),
-                                     "failure_count": d.failed_message_count})
+        self.assertEqual(
+            r["hook"], {"id": hook.id, "event": hook.event, "target": hook.target}
+        )
+        self.assertEqual(
+            r["data"],
+            {"identity_id": str(d.id), "failure_count": d.failed_message_count},
+        )
 
     def test_update_failed_message_count_reset_on_success(self):
         # Setup
         identity = self.make_identity()
         identity.failed_message_count = 2
         identity.save()
-        data = {
-            "data": {
-                "identity": str(identity.id),
-                "delivered": True, }
-        }
+        data = {"data": {"identity": str(identity.id), "delivered": True}}
         # Execute
-        response = self.client.post('/api/v1/identities/message_count/',
-                                    json.dumps(data),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/identities/message_count/",
+            json.dumps(data),
+            content_type="application/json",
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         d = Identity.objects.last()
@@ -1126,37 +1090,32 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         If neither the identity or to_addr fields are populated, we should get
         an error returned to us.
         """
-        data = {
-            "data": {
-                "delivered": True,
-            }
-        }
+        data = {"data": {"delivered": True}}
 
         response = self.client.post(
-            '/api/v1/identities/message_count/', json.dumps(data),
-            content_type='application/json')
+            "/api/v1/identities/message_count/",
+            json.dumps(data),
+            content_type="application/json",
+        )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data, [
-            '"data" must contain either "identity" or "to_addr" keys'])
+        self.assertEqual(
+            response.data, ['"data" must contain either "identity" or "to_addr" keys']
+        )
 
     def test_update_failed_message_count_nonexisting_address(self):
         """
         If an address is supplied, that doesn't belong to any identity, then
         an error should be returned.
         """
-        data = {
-            "data": {
-                "to_addr": "invalid-address",
-                "delivered": True,
-            }
-        }
+        data = {"data": {"to_addr": "invalid-address", "delivered": True}}
 
         response = self.client.post(
-            '/api/v1/identities/message_count/', json.dumps(data),
-            content_type='application/json')
+            "/api/v1/identities/message_count/",
+            json.dumps(data),
+            content_type="application/json",
+        )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.data, [
-            'No identity found for given address'])
+        self.assertEqual(response.data, ["No identity found for given address"])
 
 
 class TestOptInAPI(AuthenticatedAPITestCase):
@@ -1168,18 +1127,18 @@ class TestOptInAPI(AuthenticatedAPITestCase):
             "requestor_source_id": "1",
             "address_type": "msisdn",
             "address": "+27123",
-            "identity": str(identity.id)
+            "identity": str(identity.id),
         }
         # Execute
-        response = self.client.post('/api/v1/optin/',
-                                    json.dumps(optin_data),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/optin/", json.dumps(optin_data), content_type="application/json"
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         d = OptIn.objects.get(id=response.data["id"])
         self.assertEqual(d.identity, identity)
         self.assertEqual(d.request_source, "test_source")
-        self.assertEqual(d.requestor_source_id, '1')
+        self.assertEqual(d.requestor_source_id, "1")
 
     def test_create_optin_with_address(self):
         # Setup
@@ -1191,15 +1150,15 @@ class TestOptInAPI(AuthenticatedAPITestCase):
             "address": "+27123",
         }
         # Execute
-        response = self.client.post('/api/v1/optin/',
-                                    json.dumps(optin_data),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/optin/", json.dumps(optin_data), content_type="application/json"
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         d = OptIn.objects.get(id=response.data["id"])
         self.assertEqual(d.identity, identity)
         self.assertEqual(d.request_source, "test_source")
-        self.assertEqual(d.requestor_source_id, '1')
+        self.assertEqual(d.requestor_source_id, "1")
 
     def test_create_optin_no_matching_address(self):
         # Setup
@@ -1207,16 +1166,15 @@ class TestOptInAPI(AuthenticatedAPITestCase):
             "request_source": "test_source",
             "requestor_source_id": "1",
             "address_type": "msisdn",
-            "address": "+27123"
+            "address": "+27123",
         }
         # Execute
-        response = self.client.post('/api/v1/optin/',
-                                    json.dumps(optin_data),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/optin/", json.dumps(optin_data), content_type="application/json"
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.json()[0],
-                         "There is no identity with this address.")
+        self.assertEqual(response.json()[0], "There is no identity with this address.")
 
     def test_create_optin_multiple_matching_addresses(self):
         # Setup
@@ -1229,72 +1187,68 @@ class TestOptInAPI(AuthenticatedAPITestCase):
             "address": "+27123",
         }
         # Execute
-        response = self.client.post('/api/v1/optin/',
-                                    json.dumps(optin_data),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/optin/", json.dumps(optin_data), content_type="application/json"
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(
-            response.json()[0],
-            "There are multiple identities with this address.")
+            response.json()[0], "There are multiple identities with this address."
+        )
 
     def test_create_webhook(self):
         # Setup
-        user = User.objects.get(username='testuser')
+        user = User.objects.get(username="testuser")
         post_data = {
             "target": "http://example.com/test_source/",
-            "event": "optin.requested"
+            "event": "optin.requested",
         }
         # Execute
-        response = self.client.post('/api/v1/webhook/',
-                                    json.dumps(post_data),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/webhook/", json.dumps(post_data), content_type="application/json"
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         d = Hook.objects.last()
-        self.assertEqual(d.target, 'http://example.com/test_source/')
+        self.assertEqual(d.target, "http://example.com/test_source/")
         self.assertEqual(d.user, user)
 
     @responses.activate
     def test_deliver_hook_task(self):
         # Setup
-        user = User.objects.get(username='testuser')
+        user = User.objects.get(username="testuser")
         hook = Hook.objects.create(
-            user=user,
-            event='optin.requested',
-            target='http://example.com/api/v1/')
+            user=user, event="optin.requested", target="http://example.com/api/v1/"
+        )
         payload = {
             "identity": "test-219f0f88-7d2b-414d-933c-1f8e652869c4",
             "identity_details": {
-                "addresses": {
-                    "msisdn": {
-                        "+27123": {"optedout": True}
-                    }
-                }
+                "addresses": {"msisdn": {"+27123": {"optedout": True}}}
             },
             "optin_address_type": "msisdn",
-            "optin_address": "+27123"
+            "optin_address": "+27123",
         }
         responses.add(
             responses.POST,
-            'http://example.com/api/v1/',
+            "http://example.com/api/v1/",
             json.dumps(payload),
-            status=200, content_type='application/json')
+            status=200,
+            content_type="application/json",
+        )
 
-        deliver_hook_wrapper('http://example.com/api/v1/', payload, None, hook)
+        deliver_hook_wrapper("http://example.com/api/v1/", payload, None, hook)
 
         # Execute
-        self.assertEqual(responses.calls[0].request.url,
-                         "http://example.com/api/v1/")
+        self.assertEqual(responses.calls[0].request.url, "http://example.com/api/v1/")
 
     @responses.activate
     def test_optin(self):
         # Setup
         post_save.connect(receiver=handle_optin, sender=OptIn)
-        user = User.objects.get(username='testuser')
-        Hook.objects.create(user=user,
-                            event='optin.requested',
-                            target='http://example.com/api/v1/')
+        user = User.objects.get(username="testuser")
+        Hook.objects.create(
+            user=user, event="optin.requested", target="http://example.com/api/v1/"
+        )
         identity = self.make_identity()
         identity.details["addresses"]["msisdn"]["+27123"]["optedout"] = True
         identity.save()
@@ -1303,39 +1257,42 @@ class TestOptInAPI(AuthenticatedAPITestCase):
             "identity": str(identity.id),
             "identity_details": identity.details,
             "optin_address_type": "msisdn",
-            "optin_address": "+27123"
+            "optin_address": "+27123",
         }
         responses.add(
             responses.POST,
-            'http://example.com/api/v1/',
+            "http://example.com/api/v1/",
             json.dumps(payload),
-            status=200, content_type='application/json')
+            status=200,
+            content_type="application/json",
+        )
 
         OptIn.objects.create(
-            identity=identity, created_by=user, request_source="test_source",
-            requestor_source_id=1, address_type="msisdn", address="+27123")
+            identity=identity,
+            created_by=user,
+            request_source="test_source",
+            requestor_source_id=1,
+            address_type="msisdn",
+            address="+27123",
+        )
 
-        self.assertEqual(responses.calls[0].request.url,
-                         'http://example.com/api/v1/')
+        self.assertEqual(responses.calls[0].request.url, "http://example.com/api/v1/")
         identity = Identity.objects.get(pk=identity.pk)
-        self.assertEqual(identity.details, {
-            "name": "Test Name 1",
-            "default_addr_type": "msisdn",
-            "personnel_code": "12345",
-            "addresses": {
-                "msisdn": {
-                    "+27123": {"optedout": False}
+        self.assertEqual(
+            identity.details,
+            {
+                "name": "Test Name 1",
+                "default_addr_type": "msisdn",
+                "personnel_code": "12345",
+                "addresses": {
+                    "msisdn": {"+27123": {"optedout": False}},
+                    "email": {"foo1@bar.com": {"default": True}, "foo2@bar.com": {}},
                 },
-                "email": {
-                    "foo1@bar.com": {"default": True},
-                    "foo2@bar.com": {}
-                }
-            }
-        })
+            },
+        )
 
 
 class TestOptOutAPI(AuthenticatedAPITestCase):
-
     def test_create_optout_with_identity(self):
         # Setup
         identity = self.make_identity()
@@ -1344,18 +1301,18 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
             "requestor_source_id": "1",
             "address_type": "msisdn",
             "address": "+27123",
-            "identity": str(identity.id)
+            "identity": str(identity.id),
         }
         # Execute
-        response = self.client.post('/api/v1/optout/',
-                                    json.dumps(optout_data),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/optout/", json.dumps(optout_data), content_type="application/json"
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         d = OptOut.objects.get(id=response.data["id"])
         self.assertEqual(d.identity, identity)
         self.assertEqual(d.request_source, "test_source")
-        self.assertEqual(d.requestor_source_id, '1')
+        self.assertEqual(d.requestor_source_id, "1")
 
     def test_create_optout_with_address(self):
         # Setup
@@ -1365,19 +1322,19 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
             "requestor_source_id": "1",
             "address_type": "msisdn",
             "address": "+27123",
-            "reason": "not good messages"
+            "reason": "not good messages",
         }
         # Execute
-        response = self.client.post('/api/v1/optout/',
-                                    json.dumps(optout_data),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/optout/", json.dumps(optout_data), content_type="application/json"
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         d = OptOut.objects.get(id=response.data["id"])
         self.assertEqual(d.identity, identity)
         self.assertEqual(d.request_source, "test_source")
-        self.assertEqual(d.requestor_source_id, '1')
-        self.assertEqual(d.reason, 'not good messages')
+        self.assertEqual(d.requestor_source_id, "1")
+        self.assertEqual(d.reason, "not good messages")
 
     def test_create_optout_no_matching_address(self):
         # Setup
@@ -1385,16 +1342,15 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
             "request_source": "test_source",
             "requestor_source_id": "1",
             "address_type": "msisdn",
-            "address": "+27123"
+            "address": "+27123",
         }
         # Execute
-        response = self.client.post('/api/v1/optout/',
-                                    json.dumps(optout_data),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/optout/", json.dumps(optout_data), content_type="application/json"
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertEqual(response.json()[0],
-                         "There is no identity with this address.")
+        self.assertEqual(response.json()[0], "There is no identity with this address.")
 
     def test_create_opt_out_multiple_matching_addresses(self):
         # Setup
@@ -1405,192 +1361,206 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
             "requestor_source_id": "1",
             "address_type": "msisdn",
             "address": "+27123",
-            "optout_type": "forget"
+            "optout_type": "forget",
         }
         # Execute
-        response = self.client.post('/api/v1/optout/',
-                                    json.dumps(optout_data),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/optout/", json.dumps(optout_data), content_type="application/json"
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(
-            response.json()[0],
-            "There are multiple identities with this address.")
+            response.json()[0], "There are multiple identities with this address."
+        )
 
     def test_list_webhook(self):
-        response = self.client.get('/api/v1/webhook/')
+        response = self.client.get("/api/v1/webhook/")
 
         body = response.json()
-        self.assertEqual(len(body['results']), 0)
+        self.assertEqual(len(body["results"]), 0)
 
     def test_create_webhook(self):
         # Setup
-        user = User.objects.get(username='testuser')
+        user = User.objects.get(username="testuser")
         post_data = {
             "target": "http://example.com/test_source/",
-            "event": "optout.requested"
+            "event": "optout.requested",
         }
         # Execute
-        response = self.client.post('/api/v1/webhook/',
-                                    json.dumps(post_data),
-                                    content_type='application/json')
+        response = self.client.post(
+            "/api/v1/webhook/", json.dumps(post_data), content_type="application/json"
+        )
         # Check
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         d = Hook.objects.last()
-        self.assertEqual(d.target, 'http://example.com/test_source/')
+        self.assertEqual(d.target, "http://example.com/test_source/")
         self.assertEqual(d.user, user)
 
     @responses.activate
     def test_deliver_hook_task(self):
         # Setup
-        user = User.objects.get(username='testuser')
+        user = User.objects.get(username="testuser")
         hook = Hook.objects.create(
-            user=user,
-            event='optout.requested',
-            target='http://example.com/api/v1/')
+            user=user, event="optout.requested", target="http://example.com/api/v1/"
+        )
         payload = {
             "identity": "test-219f0f88-7d2b-414d-933c-1f8e652869c4",
-            "identity_details": {
-                "addresses": {
-                    "msisdn": {
-                        "+27123": {}
-                    }
-                }
-            },
-            "optout_type": "forget"
+            "identity_details": {"addresses": {"msisdn": {"+27123": {}}}},
+            "optout_type": "forget",
         }
         responses.add(
             responses.POST,
-            'http://example.com/api/v1/',
+            "http://example.com/api/v1/",
             json.dumps(payload),
-            status=200, content_type='application/json')
+            status=200,
+            content_type="application/json",
+        )
 
-        deliver_hook_wrapper('http://example.com/api/v1/', payload, None, hook)
+        deliver_hook_wrapper("http://example.com/api/v1/", payload, None, hook)
 
         # Execute
-        self.assertEqual(responses.calls[0].request.url,
-                         "http://example.com/api/v1/")
+        self.assertEqual(responses.calls[0].request.url, "http://example.com/api/v1/")
 
     @responses.activate
     def test_optout_webhook_combination(self):
         # Setup
         post_save.connect(receiver=handle_optout, sender=OptOut)
-        user = User.objects.get(username='testuser')
-        Hook.objects.create(user=user,
-                            event='optout.requested',
-                            target='http://example.com/api/v1/')
+        user = User.objects.get(username="testuser")
+        Hook.objects.create(
+            user=user, event="optout.requested", target="http://example.com/api/v1/"
+        )
         identity = self.make_identity()
         payload = {
             "identity": str(identity.id),
             "identity_details": identity.details,
-            'optout_type': "forget",
+            "optout_type": "forget",
         }
         responses.add(
             responses.POST,
-            'http://example.com/api/v1/',
+            "http://example.com/api/v1/",
             json.dumps(payload),
-            status=200, content_type='application/json')
+            status=200,
+            content_type="application/json",
+        )
 
         OptOut.objects.create(
-            identity=identity, created_by=user, request_source="test_source",
-            requestor_source_id=1, address_type="msisdn", address="+27123",
-            optout_type="forget")
+            identity=identity,
+            created_by=user,
+            request_source="test_source",
+            requestor_source_id=1,
+            address_type="msisdn",
+            address="+27123",
+            optout_type="forget",
+        )
 
-        self.assertEqual(responses.calls[0].request.url,
-                         'http://example.com/api/v1/')
+        self.assertEqual(responses.calls[0].request.url, "http://example.com/api/v1/")
         identity = Identity.objects.get(pk=identity.pk)
-        self.assertEqual(identity.details, {
-            "name": "redacted",
-            "default_addr_type": "redacted",
-            "personnel_code": "redacted",
-            "addresses": {}
-        })
+        self.assertEqual(
+            identity.details,
+            {
+                "name": "redacted",
+                "default_addr_type": "redacted",
+                "personnel_code": "redacted",
+                "addresses": {},
+            },
+        )
 
     @responses.activate
     def test_optout_webhook_stop(self):
         # Setup
         post_save.connect(receiver=handle_optout, sender=OptOut)
-        user = User.objects.get(username='testuser')
-        Hook.objects.create(user=user,
-                            event='optout.requested',
-                            target='http://example.com/api/v1/')
+        user = User.objects.get(username="testuser")
+        Hook.objects.create(
+            user=user, event="optout.requested", target="http://example.com/api/v1/"
+        )
         identity = self.make_identity()
         payload = {
             "identity": str(identity.id),
             "identity_details": identity.details,
-            'optout_type': "stop",
+            "optout_type": "stop",
         }
         responses.add(
             responses.POST,
-            'http://example.com/api/v1/',
+            "http://example.com/api/v1/",
             json.dumps(payload),
-            status=200, content_type='application/json')
+            status=200,
+            content_type="application/json",
+        )
 
         OptOut.objects.create(
-            identity=identity, created_by=user, request_source="test_source",
-            requestor_source_id=1, address_type="msisdn", address="+27123",
-            optout_type="stop")
+            identity=identity,
+            created_by=user,
+            request_source="test_source",
+            requestor_source_id=1,
+            address_type="msisdn",
+            address="+27123",
+            optout_type="stop",
+        )
 
-        self.assertEqual(responses.calls[0].request.url,
-                         'http://example.com/api/v1/')
+        self.assertEqual(responses.calls[0].request.url, "http://example.com/api/v1/")
         identity = Identity.objects.get(pk=identity.pk)
-        self.assertEqual(identity.details, {
-            "name": "Test Name 1",
-            "default_addr_type": "msisdn",
-            "personnel_code": "12345",
-            "addresses": {
-                "msisdn": {
-                    "+27123": {"optedout": True}
+        self.assertEqual(
+            identity.details,
+            {
+                "name": "Test Name 1",
+                "default_addr_type": "msisdn",
+                "personnel_code": "12345",
+                "addresses": {
+                    "msisdn": {"+27123": {"optedout": True}},
+                    "email": {"foo1@bar.com": {"default": True}, "foo2@bar.com": {}},
                 },
-                "email": {
-                    "foo1@bar.com": {"default": True},
-                    "foo2@bar.com": {}
-                }
-            }
-        })
+            },
+        )
 
     @responses.activate
     def test_optout_webhook_stop_all(self):
         # Setup
         post_save.connect(receiver=handle_optout, sender=OptOut)
-        user = User.objects.get(username='testuser')
-        Hook.objects.create(user=user,
-                            event='optout.requested',
-                            target='http://example.com/api/v1/')
+        user = User.objects.get(username="testuser")
+        Hook.objects.create(
+            user=user, event="optout.requested", target="http://example.com/api/v1/"
+        )
         identity = self.make_identity()
         payload = {
             "identity": str(identity.id),
             "identity_details": identity.details,
-            'optout_type': "stopall",
+            "optout_type": "stopall",
         }
         responses.add(
             responses.POST,
-            'http://example.com/api/v1/',
+            "http://example.com/api/v1/",
             json.dumps(payload),
-            status=200, content_type='application/json')
+            status=200,
+            content_type="application/json",
+        )
 
         OptOut.objects.create(
-            identity=identity, created_by=user, request_source="test_source",
-            requestor_source_id=1, address_type="msisdn", address="+27123",
-            optout_type="stopall")
+            identity=identity,
+            created_by=user,
+            request_source="test_source",
+            requestor_source_id=1,
+            address_type="msisdn",
+            address="+27123",
+            optout_type="stopall",
+        )
 
-        self.assertEqual(responses.calls[0].request.url,
-                         'http://example.com/api/v1/')
+        self.assertEqual(responses.calls[0].request.url, "http://example.com/api/v1/")
         identity = Identity.objects.get(pk=identity.pk)
-        self.assertEqual(identity.details, {
-            "name": "Test Name 1",
-            "default_addr_type": "msisdn",
-            "personnel_code": "12345",
-            "addresses": {
-                "msisdn": {
-                    "+27123": {"optedout": True}
+        self.assertEqual(
+            identity.details,
+            {
+                "name": "Test Name 1",
+                "default_addr_type": "msisdn",
+                "personnel_code": "12345",
+                "addresses": {
+                    "msisdn": {"+27123": {"optedout": True}},
+                    "email": {
+                        "foo1@bar.com": {"default": True, "optedout": True},
+                        "foo2@bar.com": {"optedout": True},
+                    },
                 },
-                "email": {
-                    "foo1@bar.com": {"default": True, "optedout": True},
-                    "foo2@bar.com": {"optedout": True}
-                }
-            }
-        })
+            },
+        )
 
     @responses.activate
     def test_optout_forget_remove_address(self):
@@ -1599,13 +1569,18 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         """
         # Setup
         post_save.connect(receiver=handle_optout, sender=OptOut)
-        user = User.objects.get(username='testuser')
+        user = User.objects.get(username="testuser")
         identity = self.make_identity()
 
         optout = OptOut.objects.create(
-            identity=identity, created_by=user, request_source="test_source",
-            requestor_source_id=1, address_type="msisdn", address="+27123",
-            optout_type="forget")
+            identity=identity,
+            created_by=user,
+            request_source="test_source",
+            requestor_source_id=1,
+            address_type="msisdn",
+            address="+27123",
+            optout_type="forget",
+        )
 
         optout.refresh_from_db()
 
@@ -1619,17 +1594,27 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
         """
         # Setup
         post_save.connect(receiver=handle_optout, sender=OptOut)
-        user = User.objects.get(username='testuser')
+        user = User.objects.get(username="testuser")
         identity = self.make_identity()
 
         optin = OptIn.objects.create(
-            identity=identity, created_by=user, request_source="test_source",
-            requestor_source_id=1, address_type="msisdn", address="+27123")
+            identity=identity,
+            created_by=user,
+            request_source="test_source",
+            requestor_source_id=1,
+            address_type="msisdn",
+            address="+27123",
+        )
 
         OptOut.objects.create(
-            identity=identity, created_by=user, request_source="test_source",
-            requestor_source_id=1, address_type="msisdn", address="+27123",
-            optout_type="forget")
+            identity=identity,
+            created_by=user,
+            request_source="test_source",
+            requestor_source_id=1,
+            address_type="msisdn",
+            address="+27123",
+            optout_type="forget",
+        )
 
         optin.refresh_from_db()
 
@@ -1637,12 +1622,10 @@ class TestOptOutAPI(AuthenticatedAPITestCase):
 
 
 class TestHealthcheckAPI(AuthenticatedAPITestCase):
-
     def test_healthcheck_read(self):
         # Setup
         # Execute
-        response = self.client.get('/api/health/',
-                                   content_type='application/json')
+        response = self.client.get("/api/health/", content_type="application/json")
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["up"], True)
@@ -1650,21 +1633,22 @@ class TestHealthcheckAPI(AuthenticatedAPITestCase):
 
 
 class TestMetricsAPI(AuthenticatedAPITestCase):
-
     def test_metrics_read(self):
         # Setup
         # Execute
-        response = self.client.get('/api/metrics/',
-                                   content_type='application/json')
+        response = self.client.get("/api/metrics/", content_type="application/json")
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(
-            sorted(response.data["metrics_available"]), sorted([
-                'identities.created.sum',
-                'identities.change.msisdn.sum',
-                'identities.change.email.sum',
-                'optout.sum',
-            ])
+            sorted(response.data["metrics_available"]),
+            sorted(
+                [
+                    "identities.created.sum",
+                    "identities.change.msisdn.sum",
+                    "identities.change.email.sum",
+                    "optout.sum",
+                ]
+            ),
         )
 
     @responses.activate
@@ -1672,22 +1656,22 @@ class TestMetricsAPI(AuthenticatedAPITestCase):
         # Setup
         # deactivate Testsession for this test
         self.session = None
-        responses.add(responses.POST,
-                      "http://metrics-url/metrics/",
-                      json={"foo": "bar"},
-                      status=200, content_type='application/json')
+        responses.add(
+            responses.POST,
+            "http://metrics-url/metrics/",
+            json={"foo": "bar"},
+            status=200,
+            content_type="application/json",
+        )
         # Execute
-        response = self.client.post('/api/metrics/',
-                                    content_type='application/json')
+        response = self.client.post("/api/metrics/", content_type="application/json")
         # Check
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["scheduled_metrics_initiated"], True)
 
 
 class TestMetrics(AuthenticatedAPITestCase):
-
-    def check_request(
-            self, request, method, params=None, data=None, headers=None):
+    def check_request(self, request, method, params=None, data=None, headers=None):
         self.assertEqual(request.method, method)
         if params is not None:
             url = urlparse.urlparse(request.url)
@@ -1702,14 +1686,9 @@ class TestMetrics(AuthenticatedAPITestCase):
             self.assertEqual(json.loads(request.body), data)
 
     def _mount_session(self):
-        response = [{
-            'name': 'foo',
-            'value': 9000,
-            'aggregator': 'bar',
-        }]
-        adapter = RecordingAdapter(json.dumps(response).encode('utf-8'))
-        self.session.mount(
-            "http://metrics-url/metrics/", adapter)
+        response = [{"name": "foo", "value": 9000, "aggregator": "bar"}]
+        adapter = RecordingAdapter(json.dumps(response).encode("utf-8"))
+        self.session.mount("http://metrics-url/metrics/", adapter)
         return adapter
 
     @responses.activate
@@ -1720,23 +1699,25 @@ class TestMetrics(AuthenticatedAPITestCase):
         """
         self.session = None
         responses.add(
-            responses.POST, "http://metrics-url/metrics/", json={}, status=200,
-            content_type='application/json')
+            responses.POST,
+            "http://metrics-url/metrics/",
+            json={},
+            status=200,
+            content_type="application/json",
+        )
 
         # Execute
-        result = fire_metric.apply_async(kwargs={
-            "metric_name": 'foo.last',
-            "metric_value": 1,
-            "session": self.session
-        })
+        result = fire_metric.apply_async(
+            kwargs={
+                "metric_name": "foo.last",
+                "metric_value": 1,
+                "session": self.session,
+            }
+        )
         # Check
         request = responses.calls[-1].request
-        self.check_request(
-            request, 'POST',
-            data={"foo.last": 1.0}
-        )
-        self.assertEqual(result.get(),
-                         "Fired metric <foo.last> with value <1.0>")
+        self.check_request(request, "POST", data={"foo.last": 1.0})
+        self.assertEqual(result.get(), "Fired metric <foo.last> with value <1.0>")
 
     @responses.activate
     def test_create_identity_sum_metric(self):
@@ -1746,8 +1727,12 @@ class TestMetrics(AuthenticatedAPITestCase):
         """
         self.session = None
         responses.add(
-            responses.POST, "http://metrics-url/metrics/", json={}, status=200,
-            content_type='application/json')
+            responses.POST,
+            "http://metrics-url/metrics/",
+            json={},
+            status=200,
+            content_type="application/json",
+        )
 
         # reconnect metric post_save hook
         post_save.connect(fire_metrics_if_new, sender=Identity)
@@ -1757,10 +1742,7 @@ class TestMetrics(AuthenticatedAPITestCase):
 
         # Check
         request = responses.calls[-1].request
-        self.check_request(
-            request, 'POST',
-            data={"identities.created.sum": 1.0}
-        )
+        self.check_request(request, "POST", data={"identities.created.sum": 1.0})
         # remove post_save hooks to prevent teardown errors
         post_save.disconnect(fire_metrics_if_new, sender=Identity)
 
@@ -1782,10 +1764,13 @@ class TestMetrics(AuthenticatedAPITestCase):
         # reconnect metric post_save hook
         post_save.connect(fire_optout_metric, sender=OptOut)
 
-        responses.add(responses.POST,
-                      "http://metrics-url/metrics/",
-                      json={"foo": "bar"},
-                      status=200, content_type='application/json')
+        responses.add(
+            responses.POST,
+            "http://metrics-url/metrics/",
+            json={"foo": "bar"},
+            status=200,
+            content_type="application/json",
+        )
 
         # Execute
         OptOut.objects.create(**optout_data)
@@ -1805,10 +1790,13 @@ class TestMetrics(AuthenticatedAPITestCase):
         # reconnect metric post_save hook
         post_save.connect(fire_metrics_if_new, sender=Identity)
         # add metric post response
-        responses.add(responses.POST,
-                      "http://metrics-url/metrics/",
-                      json={"foo": "bar"},
-                      status=200, content_type='application/json')
+        responses.add(
+            responses.POST,
+            "http://metrics-url/metrics/",
+            json={"foo": "bar"},
+            status=200,
+            content_type="application/json",
+        )
 
         # Execute
         self.make_identity()
@@ -1825,10 +1813,13 @@ class TestMetrics(AuthenticatedAPITestCase):
         # deactivate Testsession for this test
         self.session = None
         # add metric post response
-        responses.add(responses.POST,
-                      "http://metrics-url/metrics/",
-                      json={"foo": "bar"},
-                      status=200, content_type='application/json')
+        responses.add(
+            responses.POST,
+            "http://metrics-url/metrics/",
+            json={"foo": "bar"},
+            status=200,
+            content_type="application/json",
+        )
 
         # Execute
         result = scheduled_metrics.apply_async()
@@ -1843,14 +1834,18 @@ class TestMetrics(AuthenticatedAPITestCase):
         """
         self.session = None
         responses.add(
-            responses.POST, "http://metrics-url/metrics/", json={}, status=200,
-            content_type='application/json')
+            responses.POST,
+            "http://metrics-url/metrics/",
+            json={},
+            status=200,
+            content_type="application/json",
+        )
 
         identity = self.make_identity()
         new_details = {
             "addresses": {
                 "msisdn": {"+27123999": {}},
-                "email": {"foo1@bar.com": {}, "foo2@bar.com": {}}
+                "email": {"foo1@bar.com": {}, "foo2@bar.com": {}},
             }
         }
 
@@ -1860,10 +1855,7 @@ class TestMetrics(AuthenticatedAPITestCase):
 
         # Check
         request = responses.calls[-1].request
-        self.check_request(
-            request, 'POST',
-            data={"identities.change.msisdn.sum": 1.0}
-        )
+        self.check_request(request, "POST", data={"identities.change.msisdn.sum": 1.0})
 
     @responses.activate
     def test_update_msisdn_metric_negative(self):
@@ -1873,14 +1865,18 @@ class TestMetrics(AuthenticatedAPITestCase):
         """
         self.session = None
         responses.add(
-            responses.POST, "http://metrics-url/metrics/", json={}, status=200,
-            content_type='application/json')
+            responses.POST,
+            "http://metrics-url/metrics/",
+            json={},
+            status=200,
+            content_type="application/json",
+        )
 
         identity = self.make_identity()
         new_details = {
             "addresses": {
                 "msisdn": {"+27123": {}},
-                "email": {"foo1@bar.com": {}, "foo2@bar.com": {}}
+                "email": {"foo1@bar.com": {}, "foo2@bar.com": {}},
             }
         }
 
@@ -1898,14 +1894,18 @@ class TestMetrics(AuthenticatedAPITestCase):
         """
         self.session = None
         responses.add(
-            responses.POST, "http://metrics-url/metrics/", json={}, status=200,
-            content_type='application/json')
+            responses.POST,
+            "http://metrics-url/metrics/",
+            json={},
+            status=200,
+            content_type="application/json",
+        )
 
         identity = self.make_identity()
         new_details = {
             "addresses": {
                 "msisdn": {"+27123": {}},
-                "email": {"foo1_new@bar.com": {}, "foo2@bar.com": {}}
+                "email": {"foo1_new@bar.com": {}, "foo2@bar.com": {}},
             }
         }
 
@@ -1915,7 +1915,4 @@ class TestMetrics(AuthenticatedAPITestCase):
 
         # Check
         request = responses.calls[-1].request
-        self.check_request(
-            request, 'POST',
-            data={"identities.change.email.sum": 1.0}
-        )
+        self.check_request(request, "POST", data={"identities.change.email.sum": 1.0})

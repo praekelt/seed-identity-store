@@ -1,11 +1,13 @@
 import json
 import uuid
+
 import requests
 from celery.task import Task
 from django.conf import settings
-from seed_services_client.metrics import MetricsApiClient
-from .models import DetailKey
 from seed_papertrail.decorators import papertrail
+from seed_services_client.metrics import MetricsApiClient
+
+from .models import DetailKey
 
 
 class DeliverHook(Task):
@@ -20,9 +22,9 @@ class DeliverHook(Task):
             url=target,
             data=json.dumps(payload),
             headers={
-                'Content-Type': 'application/json',
-                'Authorization': 'Token %s' % settings.HOOK_AUTH_TOKEN
-            }
+                "Content-Type": "application/json",
+                "Authorization": "Token %s" % settings.HOOK_AUTH_TOKEN,
+            },
         )
 
 
@@ -34,38 +36,39 @@ def deliver_hook_wrapper(target, payload, instance, hook):
             instance_id = instance.id
     else:
         instance_id = None
-    kwargs = dict(target=target, payload=payload,
-                  instance_id=instance_id, hook_id=hook.id)
+    kwargs = dict(
+        target=target, payload=payload, instance_id=instance_id, hook_id=hook.id
+    )
     DeliverHook.apply_async(kwargs=kwargs)
 
 
 def get_metric_client(session=None):
     return MetricsApiClient(
-        url=settings.METRICS_URL,
-        auth=settings.METRICS_AUTH,
-        session=session)
+        url=settings.METRICS_URL, auth=settings.METRICS_AUTH, session=session
+    )
 
 
 class FireMetric(Task):
 
     """ Fires a metric using the MetricsApiClient
     """
+
     name = "seed_identity_store.identities.tasks.fire_metric"
 
     @papertrail.debug(name)
     def run(self, metric_name, metric_value, session=None, **kwargs):
         metric_value = float(metric_value)
-        metric = {
-            metric_name: metric_value
-        }
+        metric = {metric_name: metric_value}
         try:
             metric_client = get_metric_client(session=session)
             metric_client.fire_metrics(**metric)
-            return "Fired metric <%s> with value <%s>" % (
-                metric_name, metric_value)
+            return "Fired metric <%s> with value <%s>" % (metric_name, metric_value)
         except (requests.exceptions.HTTPError,) as e:
             return "Failed to fire metric <%s> with value <%s> because %s" % (
-                metric_name, metric_value, e)
+                metric_name,
+                metric_value,
+                e,
+            )
 
 
 fire_metric = FireMetric()
@@ -76,6 +79,7 @@ class ScheduledMetrics(Task):
     """ Fires off tasks for all the metrics that should run
         on a schedule
     """
+
     name = "seed_identity_store.subscriptions.tasks.scheduled_metrics"
 
     @papertrail.debug(name)
@@ -84,8 +88,7 @@ class ScheduledMetrics(Task):
         for metric in settings.METRICS_SCHEDULED_TASKS:
             globs[metric].apply_async()
 
-        return "%d Scheduled metrics launched" % len(
-            settings.METRICS_SCHEDULED_TASKS)
+        return "%d Scheduled metrics launched" % len(settings.METRICS_SCHEDULED_TASKS)
 
 
 scheduled_metrics = ScheduledMetrics()
@@ -95,11 +98,12 @@ class PopulateDetailKey(Task):
 
     """ Fires last created subscriptions count
     """
+
     name = "seed_identity_store.identities.tasks.populate_detail_key"
 
     @papertrail.debug(name)
     def run(self, key_names):
-        existing_keys = DetailKey.objects.values_list('key_name', flat=True)
+        existing_keys = DetailKey.objects.values_list("key_name", flat=True)
         # get key_names NOT in existing_keys
         new_items = [n for n in key_names if n not in existing_keys]
         for i in new_items:
