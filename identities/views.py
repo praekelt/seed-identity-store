@@ -14,8 +14,6 @@ from rest_framework.views import APIView
 from rest_hooks.models import Hook
 from rest_hooks.signals import raw_hook_event
 
-from seed_identity_store.utils import get_available_metrics
-
 from .models import DetailKey, Identity, OptIn, OptOut
 from .serializers import (
     AddressSerializer,
@@ -27,7 +25,6 @@ from .serializers import (
     OptOutSerializer,
     UserSerializer,
 )
-from .tasks import scheduled_metrics
 
 
 class CreatedAtCursorPagination(CursorPagination):
@@ -375,7 +372,7 @@ class HookViewSet(viewsets.ModelViewSet):
 
 
 class MetricsView(APIView):
-
+    # This is here for backwards compatibility with the Control Interface
     """ Metrics Interaction
         GET - returns list of all available metrics on the service
         POST - starts up the task that fires all the scheduled metrics
@@ -385,12 +382,11 @@ class MetricsView(APIView):
 
     def get(self, request, *args, **kwargs):
         status = 200
-        resp = {"metrics_available": get_available_metrics()}
+        resp = {"metrics_available": []}
         return Response(resp, status=status)
 
     def post(self, request, *args, **kwargs):
         status = 201
-        scheduled_metrics.apply_async()
         resp = {"scheduled_metrics_initiated": True}
         return Response(resp, status=status)
 

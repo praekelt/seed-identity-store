@@ -12,8 +12,7 @@ CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_TASK_ALWAYS_EAGER = True
 BROKER_BACKEND = "memory"
 
-METRICS_URL = "http://metrics-url"
-METRICS_AUTH_TOKEN = "REPLACEME"
-
 # REST Framework conf defaults
 REST_FRAMEWORK["PAGE_SIZE"] = 2  # noqa: F405
+
+PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]

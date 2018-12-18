@@ -7,9 +7,14 @@ from django.db import models
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.encoding import python_2_unicode_compatible
+from prometheus_client import Counter
 from rest_hooks.signals import raw_hook_event
 
 from seed_identity_store.settings import ADDRESS_TYPES
+
+identities_address_change_total = Counter(
+    "identities_address_change_total", "Number of identity address changes", ["type"]
+)
 
 
 class IdentityManager(models.Manager):
@@ -114,16 +119,7 @@ class Identity(models.Model):
                 ]
 
                 if set(old_keys) != set(new_keys):
-                    from .tasks import fire_metric
-
-                    fire_metric.apply_async(
-                        kwargs={
-                            "metric_name": "identities.change.{}.sum".format(
-                                address_type
-                            ),
-                            "metric_value": 1.0,
-                        }
-                    )
+                    identities_address_change_total.labels(address_type).inc()
 
         super(Identity, self).save(*args, **kwargs)
 
@@ -437,26 +433,6 @@ def handle_optout(sender, instance, created, **kwargs):
         )
     elif instance.optout_type == "stopall":
         identity.optout_address(scope="all")
-
-
-@receiver(post_save, sender=OptOut)
-def fire_optout_metric(sender, instance, created, **kwargs):
-    if created is False or instance.identity is None:
-        return
-
-    from .tasks import fire_metric
-
-    fire_metric.apply_async(kwargs={"metric_name": "optout.sum", "metric_value": 1.0})
-
-
-@receiver(post_save, sender=Identity)
-def fire_metrics_if_new(sender, instance, created, **kwargs):
-    from .tasks import fire_metric
-
-    if created:
-        fire_metric.apply_async(
-            kwargs={"metric_name": "identities.created.sum", "metric_value": 1.0}
-        )
 
 
 @receiver(post_save, sender=Identity)

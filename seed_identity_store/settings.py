@@ -45,17 +45,20 @@ INSTALLED_APPS = (
     "rest_framework.authtoken",
     "django_filters",
     "rest_hooks",
+    "django_prometheus",
     # us
     "identities",
 )
 
 MIDDLEWARE = (
+    "django_prometheus.middleware.PrometheusBeforeMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django_prometheus.middleware.PrometheusAfterMiddleware",
 )
 
 ROOT_URLCONF = "seed_identity_store.urls"
@@ -70,9 +73,12 @@ DATABASES = {
     "default": dj_database_url.config(
         default=os.environ.get(
             "IDENTITIES_DATABASE", "postgres://postgres:@localhost/seed_identity_store"
-        )
+        ),
+        engine="django_prometheus.db.backends.postgresql",
     )
 }
+
+PROMETHEUS_EXPORT_MIGRATIONS = False
 
 
 # Internationalization
@@ -168,33 +174,16 @@ CELERY_TASK_CREATE_MISSING_QUEUES = True
 CELERY_TASK_ROUTES = {
     "celery.backend_cleanup": {"queue": "mediumpriority"},
     "identities.tasks.DeliverHook": {"queue": "priority"},
-    "identities.tasks.fire_metric": {"queue": "metrics"},
-    "identities.tasks.scheduled_metrics": {"queue": "metrics"},
-    "identities.tasks.fire_active_last": {"queue": "metrics"},
     "identities.tasks.populate_detail_key": {"queue": "priority"},
 }
 
 ADDRESS_TYPES = ["msisdn", "email"]
-
-METRICS_REALTIME = ["identities.created.sum", "optout.sum"]
-
-METRICS_REALTIME.extend(["identities.change.%s.sum" % at for at in ADDRESS_TYPES])
-
-METRICS_SCHEDULED = []
-METRICS_SCHEDULED_TASKS = []
 
 CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_WORKER_MAX_TASKS_PER_CHILD = 50
-
-METRICS_URL = os.environ.get("METRICS_URL", None)
-METRICS_AUTH = (
-    os.environ.get("METRICS_AUTH_USER", "REPLACEME"),
-    os.environ.get("METRICS_AUTH_PASSWORD", "REPLACEME"),
-)
-
 
 PAPERTRAIL = os.environ.get("PAPERTRAIL")
 if PAPERTRAIL:

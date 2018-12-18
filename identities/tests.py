@@ -1,34 +1,18 @@
 import json
 
 import responses
-from django.conf import settings
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.test import TestCase
+from prometheus_client import REGISTRY
 from requests_testadapter import TestAdapter, TestSession
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 from rest_hooks.models import Hook
-from seed_services_client.metrics import MetricsApiClient
 
-from . import tasks
-from .models import (
-    DetailKey,
-    Identity,
-    OptIn,
-    OptOut,
-    fire_metrics_if_new,
-    fire_optout_metric,
-    handle_optin,
-    handle_optout,
-)
-from .tasks import deliver_hook_wrapper, fire_metric, scheduled_metrics
-
-try:
-    from urllib.parse import urlparse
-except ImportError:
-    from urlparse import urlparse
+from .models import DetailKey, Identity, OptIn, OptOut, handle_optin, handle_optout
+from .tasks import deliver_hook_wrapper
 
 
 class RecordingAdapter(TestAdapter):
@@ -69,33 +53,18 @@ class AuthenticatedAPITestCase(APITestCase):
             }
         return Identity.objects.create(**id_data)
 
-    def _replace_get_metric_client(self, session=None):
-        return MetricsApiClient(
-            url=settings.METRICS_URL, auth=settings.METRICS_AUTH, session=self.session
-        )
-
-    def _restore_get_metric_client(self, session=None):
-        return MetricsApiClient(
-            url=settings.METRICS_URL, auth=settings.METRICS_AUTH, session=self.session
-        )
-
     def _replace_post_save_hooks(self):
         post_save.disconnect(handle_optout, sender=Identity)
         post_save.disconnect(handle_optin, sender=Identity)
-        post_save.disconnect(fire_metrics_if_new, sender=Identity)
-        post_save.disconnect(fire_optout_metric, sender=OptOut)
 
     def _restore_post_save_hooks(self):
         post_save.connect(handle_optout, sender=Identity)
         post_save.connect(handle_optin, sender=Identity)
-        post_save.connect(fire_metrics_if_new, sender=Identity)
-        post_save.connect(fire_optout_metric, sender=OptOut)
 
     def setUp(self):
         super(AuthenticatedAPITestCase, self).setUp()
 
         self._replace_post_save_hooks()
-        tasks.get_metric_client = self._replace_get_metric_client
 
         self.username = "testuser"
         self.password = "testpass"
@@ -114,7 +83,6 @@ class AuthenticatedAPITestCase(APITestCase):
 
     def tearDown(self):
         self._restore_post_save_hooks()
-        tasks.get_metric_client = self._restore_get_metric_client
 
 
 class TestLogin(AuthenticatedAPITestCase):
@@ -1639,17 +1607,7 @@ class TestMetricsAPI(AuthenticatedAPITestCase):
         response = self.client.get("/api/metrics/", content_type="application/json")
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(
-            sorted(response.data["metrics_available"]),
-            sorted(
-                [
-                    "identities.created.sum",
-                    "identities.change.msisdn.sum",
-                    "identities.change.email.sum",
-                    "optout.sum",
-                ]
-            ),
-        )
+        self.assertEqual(sorted(response.data["metrics_available"]), sorted([]))
 
     @responses.activate
     def test_post_metrics(self):
@@ -1671,176 +1629,17 @@ class TestMetricsAPI(AuthenticatedAPITestCase):
 
 
 class TestMetrics(AuthenticatedAPITestCase):
-    def check_request(self, request, method, params=None, data=None, headers=None):
-        self.assertEqual(request.method, method)
-        if params is not None:
-            url = urlparse.urlparse(request.url)
-            qs = urlparse.parse_qsl(url.query)
-            self.assertEqual(dict(qs), params)
-        if headers is not None:
-            for key, value in headers.items():
-                self.assertEqual(request.headers[key], value)
-        if data is None:
-            self.assertEqual(request.body, None)
-        else:
-            self.assertEqual(json.loads(request.body), data)
-
-    def _mount_session(self):
-        response = [{"name": "foo", "value": 9000, "aggregator": "bar"}]
-        adapter = RecordingAdapter(json.dumps(response).encode("utf-8"))
-        self.session.mount("http://metrics-url/metrics/", adapter)
-        return adapter
-
-    @responses.activate
-    def test_direct_fire(self):
-        """
-        When calling the `fire_metric` task directly, it should make a POST
-        request to the correct endpoint, with the specified metric data.
-        """
-        self.session = None
-        responses.add(
-            responses.POST,
-            "http://metrics-url/metrics/",
-            json={},
-            status=200,
-            content_type="application/json",
-        )
-
-        # Execute
-        result = fire_metric.apply_async(
-            kwargs={
-                "metric_name": "foo.last",
-                "metric_value": 1,
-                "session": self.session,
-            }
-        )
-        # Check
-        request = responses.calls[-1].request
-        self.check_request(request, "POST", data={"foo.last": 1.0})
-        self.assertEqual(result.get(), "Fired metric <foo.last> with value <1.0>")
-
-    @responses.activate
-    def test_create_identity_sum_metric(self):
-        """
-        When a new identity is created, it should run the `fire_metric` task
-        for the `sum` metric type with a total of 1.
-        """
-        self.session = None
-        responses.add(
-            responses.POST,
-            "http://metrics-url/metrics/",
-            json={},
-            status=200,
-            content_type="application/json",
-        )
-
-        # reconnect metric post_save hook
-        post_save.connect(fire_metrics_if_new, sender=Identity)
-
-        # Execute
-        self.make_identity()
-
-        # Check
-        request = responses.calls[-1].request
-        self.check_request(request, "POST", data={"identities.created.sum": 1.0})
-        # remove post_save hooks to prevent teardown errors
-        post_save.disconnect(fire_metrics_if_new, sender=Identity)
-
-    @responses.activate
-    def test_optout_created_metrics(self):
-        # Setup
-        identity = self.make_identity()
-        optout_data = {
-            "request_source": "test_source",
-            "requestor_source_id": "1",
-            "address_type": "msisdn",
-            "address": "+27123",
-            "identity": identity,
-            "reason": "not good messages",
-        }
-        OptOut.objects.create(**optout_data)
-
-        self.session = None
-        # reconnect metric post_save hook
-        post_save.connect(fire_optout_metric, sender=OptOut)
-
-        responses.add(
-            responses.POST,
-            "http://metrics-url/metrics/",
-            json={"foo": "bar"},
-            status=200,
-            content_type="application/json",
-        )
-
-        # Execute
-        OptOut.objects.create(**optout_data)
-
-        # Check
-        self.assertEqual(len(responses.calls), 1)
-        [call1] = responses.calls
-        self.assertEqual(json.loads(call1.request.body), {"optout.sum": 1.0})
-        # remove post_save hooks to prevent teardown errors
-        post_save.disconnect(fire_optout_metric, sender=OptOut)
-
-    @responses.activate
-    def test_multiple_created_metrics(self):
-        # Setup
-        # deactivate Testsession for this test
-        self.session = None
-        # reconnect metric post_save hook
-        post_save.connect(fire_metrics_if_new, sender=Identity)
-        # add metric post response
-        responses.add(
-            responses.POST,
-            "http://metrics-url/metrics/",
-            json={"foo": "bar"},
-            status=200,
-            content_type="application/json",
-        )
-
-        # Execute
-        self.make_identity()
-        self.make_identity()
-
-        # Check
-        self.assertEqual(len(responses.calls), 2)
-        # remove post_save hooks to prevent teardown errors
-        post_save.disconnect(fire_metrics_if_new, sender=Identity)
-
-    @responses.activate
-    def test_scheduled_metrics(self):
-        # Setup
-        # deactivate Testsession for this test
-        self.session = None
-        # add metric post response
-        responses.add(
-            responses.POST,
-            "http://metrics-url/metrics/",
-            json={"foo": "bar"},
-            status=200,
-            content_type="application/json",
-        )
-
-        # Execute
-        result = scheduled_metrics.apply_async()
-        # Check
-        self.assertEqual(result.get(), "0 Scheduled metrics launched")
-        self.assertEqual(len(responses.calls), 0)
-
     @responses.activate
     def test_update_msisdn_metric(self):
         """
         When a MSISDN is changed on a identity, a sum metric should be fired
         """
-        self.session = None
-        responses.add(
-            responses.POST,
-            "http://metrics-url/metrics/",
-            json={},
-            status=200,
-            content_type="application/json",
+        before = (
+            REGISTRY.get_sample_value(
+                "identities_address_change_total", {"type": "msisdn"}
+            )
+            or 0
         )
-
         identity = self.make_identity()
         new_details = {
             "addresses": {
@@ -1854,8 +1653,10 @@ class TestMetrics(AuthenticatedAPITestCase):
         identity.save()
 
         # Check
-        request = responses.calls[-1].request
-        self.check_request(request, "POST", data={"identities.change.msisdn.sum": 1.0})
+        after = REGISTRY.get_sample_value(
+            "identities_address_change_total", {"type": "msisdn"}
+        )
+        self.assertEqual(1, after - before)
 
     @responses.activate
     def test_update_msisdn_metric_negative(self):
@@ -1863,15 +1664,12 @@ class TestMetrics(AuthenticatedAPITestCase):
         When the details of the identity is updated and the MSISDN remains the
         same, no metric request should be made
         """
-        self.session = None
-        responses.add(
-            responses.POST,
-            "http://metrics-url/metrics/",
-            json={},
-            status=200,
-            content_type="application/json",
+        before = (
+            REGISTRY.get_sample_value(
+                "identities_address_change_total", {"type": "msisdn"}
+            )
+            or 0
         )
-
         identity = self.make_identity()
         new_details = {
             "addresses": {
@@ -1885,22 +1683,22 @@ class TestMetrics(AuthenticatedAPITestCase):
         identity.save()
 
         # Check
-        self.assertEqual(len(responses.calls), 0)
+        after = REGISTRY.get_sample_value(
+            "identities_address_change_total", {"type": "msisdn"}
+        )
+        self.assertEqual(0, after - before)
 
     @responses.activate
     def test_update_email_metric(self):
         """
         When a email is changed on a identity, a sum metric should be fired
         """
-        self.session = None
-        responses.add(
-            responses.POST,
-            "http://metrics-url/metrics/",
-            json={},
-            status=200,
-            content_type="application/json",
+        before = (
+            REGISTRY.get_sample_value(
+                "identities_address_change_total", {"type": "email"}
+            )
+            or 0
         )
-
         identity = self.make_identity()
         new_details = {
             "addresses": {
@@ -1914,5 +1712,7 @@ class TestMetrics(AuthenticatedAPITestCase):
         identity.save()
 
         # Check
-        request = responses.calls[-1].request
-        self.check_request(request, "POST", data={"identities.change.email.sum": 1.0})
+        after = REGISTRY.get_sample_value(
+            "identities_address_change_total", {"type": "email"}
+        )
+        self.assertEqual(1, after - before)
