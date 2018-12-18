@@ -45,17 +45,20 @@ INSTALLED_APPS = (
     "rest_framework.authtoken",
     "django_filters",
     "rest_hooks",
+    "django_prometheus",
     # us
     "identities",
 )
 
 MIDDLEWARE = (
+    "django_prometheus.middleware.PrometheusBeforeMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django_prometheus.middleware.PrometheusAfterMiddleware",
 )
 
 ROOT_URLCONF = "seed_identity_store.urls"
@@ -70,9 +73,12 @@ DATABASES = {
     "default": dj_database_url.config(
         default=os.environ.get(
             "IDENTITIES_DATABASE", "postgres://postgres:@localhost/seed_identity_store"
-        )
+        ),
+        engine="django_prometheus.db.backends.postgresql",
     )
 }
+
+PROMETHEUS_EXPORT_MIGRATIONS = False
 
 
 # Internationalization

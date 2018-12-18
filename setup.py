@@ -46,6 +46,7 @@ setup(
         "django-rest-hooks==1.5.0",
         "seed-services-client>=0.31.0",
         "seed-papertrail>=1.5.1",
+        "django-prometheus==1.0.15",
     ],
     classifiers=[
         "Development Status :: 4 - Beta",
