@@ -84,13 +84,3 @@ The following environmental variables can be used to override some default setti
 .. envvar:: BROKER_URL
 
     The Broker URL to use with Celery.
-
-.. envvar:: METRICS_URL
-
-    The URL to the `Go Metrics API`_ instance to push metrics to.
-
-.. _Go Metrics API: https://github.com/praekelt/go-metrics-api
-
-.. envvar:: METRICS_AUTH_TOKEN
-
-    The `auth token` to use to connect to the `Go Metrics API`_ above.
