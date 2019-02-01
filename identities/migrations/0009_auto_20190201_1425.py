@@ -5,19 +5,17 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [
-        ('identities', '0008_auto_20181213_1443'),
-    ]
+    dependencies = [("identities", "0008_auto_20181213_1443")]
 
     operations = [
         migrations.AlterField(
-            model_name='identity',
-            name='created_at',
+            model_name="identity",
+            name="created_at",
             field=models.DateTimeField(auto_now_add=True, db_index=True),
         ),
         migrations.AlterField(
-            model_name='identity',
-            name='updated_at',
+            model_name="identity",
+            name="updated_at",
             field=models.DateTimeField(auto_now=True, db_index=True),
         ),
     ]
