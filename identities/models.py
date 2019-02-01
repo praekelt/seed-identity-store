@@ -65,8 +65,8 @@ class Identity(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
     )
-    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
-    updated_at = models.DateTimeField(auto_now=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(
         User, related_name="identities_created", null=True, on_delete=models.SET_NULL
     )
@@ -76,6 +76,12 @@ class Identity(models.Model):
     user = property(lambda self: self.created_by)
 
     objects = IdentityManager()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["-created_at"]),
+            models.Index(fields=["-updated_at"]),
+        ]
 
     def serialize_hook(self, hook):
         return {
