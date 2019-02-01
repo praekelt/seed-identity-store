@@ -65,8 +65,8 @@ class Identity(models.Model):
         blank=True,
         on_delete=models.SET_NULL,
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True, db_index=True)
     created_by = models.ForeignKey(
         User, related_name="identities_created", null=True, on_delete=models.SET_NULL
     )
