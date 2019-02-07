@@ -77,6 +77,12 @@ class Identity(models.Model):
 
     objects = IdentityManager()
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["-created_at"]),
+            models.Index(fields=["-updated_at"]),
+        ]
+
     def serialize_hook(self, hook):
         return {
             "hook": hook.dict(),
