@@ -134,7 +134,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.CursorPagination",
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework.authentication.BasicAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
+        "seed_identity_store.auth.CachedTokenAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
@@ -199,3 +199,5 @@ if PAPERTRAIL:
 
 
 MAX_CONSECUTIVE_SEND_FAILURES = os.environ.get("MAX_CONSECUTIVE_SEND_FAILURES", 5)
+
+CACHES = {"locmem": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}

@@ -4,6 +4,7 @@ import responses
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.test import TestCase
+from django.urls import reverse
 from prometheus_client import REGISTRY
 from requests_testadapter import TestAdapter, TestSession
 from rest_framework import status
@@ -1716,3 +1717,33 @@ class TestMetrics(AuthenticatedAPITestCase):
             "identities_address_change_total", {"type": "email"}
         )
         self.assertEqual(1, after - before)
+
+
+class CachedTokenAuthenticationTests(TestCase):
+    url = reverse("identity-list")
+
+    def test_auth_required(self):
+        """
+        Ensure that the view we're testing actually requires token auth
+        """
+        r = self.client.get(self.url)
+        self.assertEqual(r.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_caching_working(self):
+        """
+        Ensure that the second time we make a request, there's no database hit
+        """
+        user = User.objects.create_user("test")
+        token = Token.objects.create(user=user)
+
+        with self.assertNumQueries(2):
+            r = self.client.get(
+                self.url, HTTP_AUTHORIZATION="Token {}".format(token.key)
+            )
+            self.assertEqual(r.status_code, status.HTTP_200_OK)
+
+        with self.assertNumQueries(1):
+            r = self.client.get(
+                self.url, HTTP_AUTHORIZATION="Token {}".format(token.key)
+            )
+            self.assertEqual(r.status_code, status.HTTP_200_OK)
