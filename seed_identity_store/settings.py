@@ -11,7 +11,10 @@ https://docs.djangoproject.com/en/1.9/ref/settings/
 import os
 
 import dj_database_url
+import environ
 from kombu import Exchange, Queue
+
+env = environ.Env()
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -200,4 +203,7 @@ if PAPERTRAIL:
 
 MAX_CONSECUTIVE_SEND_FAILURES = os.environ.get("MAX_CONSECUTIVE_SEND_FAILURES", 5)
 
-CACHES = {"locmem": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+CACHES = {
+    "default": env.cache(default="locmemcache://"),
+    "locmem": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+}
