@@ -11,7 +11,10 @@ https://docs.djangoproject.com/en/1.9/ref/settings/
 import os
 
 import dj_database_url
+import environ
 from kombu import Exchange, Queue
+
+env = environ.Env()
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -134,7 +137,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.CursorPagination",
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework.authentication.BasicAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
+        "seed_identity_store.auth.CachedTokenAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
@@ -199,3 +202,8 @@ if PAPERTRAIL:
 
 
 MAX_CONSECUTIVE_SEND_FAILURES = os.environ.get("MAX_CONSECUTIVE_SEND_FAILURES", 5)
+
+CACHES = {
+    "default": env.cache(default="locmemcache://"),
+    "locmem": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+}
