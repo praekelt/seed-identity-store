@@ -7,14 +7,7 @@ from django.db import models
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.encoding import python_2_unicode_compatible
-from prometheus_client import Counter
 from rest_hooks.signals import raw_hook_event
-
-from seed_identity_store.settings import ADDRESS_TYPES
-
-identities_address_change_total = Counter(
-    "identities_address_change_total", "Number of identity address changes", ["type"]
-)
 
 
 class IdentityManager(models.Manager):
