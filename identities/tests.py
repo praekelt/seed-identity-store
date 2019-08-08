@@ -972,13 +972,17 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_update_failed_message_count_identity_given(self):
         # Setup
         identity = self.make_identity()
+        identity.failed_message_count = 0
+        identity.save()
+
         data = {"data": {"identity": str(identity.id), "delivered": False}}
         # Execute
-        response = self.client.post(
-            "/api/v1/identities/message_count/",
-            json.dumps(data),
-            content_type="application/json",
-        )
+        with self.assertNumQueries(4):
+            response = self.client.post(
+                "/api/v1/identities/message_count/",
+                json.dumps(data),
+                content_type="application/json",
+            )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         d = Identity.objects.last()
@@ -986,14 +990,18 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
 
     def test_update_failed_message_count_address_given(self):
         # Setup
-        self.make_identity()
+        identity = self.make_identity()
+        identity.failed_message_count = None
+        identity.save()
+
         data = {"data": {"to_addr": "+27123", "delivered": False}}
         # Execute
-        response = self.client.post(
-            "/api/v1/identities/message_count/",
-            json.dumps(data),
-            content_type="application/json",
-        )
+        with self.assertNumQueries(3):
+            response = self.client.post(
+                "/api/v1/identities/message_count/",
+                json.dumps(data),
+                content_type="application/json",
+            )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         d = Identity.objects.last()
@@ -1017,11 +1025,12 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         identity.save()
         data = {"data": {"identity": str(identity.id), "delivered": False}}
         # Execute
-        response = self.client.post(
-            "/api/v1/identities/message_count/",
-            json.dumps(data),
-            content_type="application/json",
-        )
+        with self.assertNumQueries(5):
+            response = self.client.post(
+                "/api/v1/identities/message_count/",
+                json.dumps(data),
+                content_type="application/json",
+            )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         d = Identity.objects.last()
@@ -1044,15 +1053,32 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         identity.save()
         data = {"data": {"identity": str(identity.id), "delivered": True}}
         # Execute
-        response = self.client.post(
-            "/api/v1/identities/message_count/",
-            json.dumps(data),
-            content_type="application/json",
-        )
+        with self.assertNumQueries(3):
+            response = self.client.post(
+                "/api/v1/identities/message_count/",
+                json.dumps(data),
+                content_type="application/json",
+            )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         d = Identity.objects.last()
         self.assertEqual(d.failed_message_count, 0)
+
+    def test_update_failed_message_count_success(self):
+        """
+        If it's a successful delivery, and the identity failed message count is already
+        reset, then we don't need to touch the identity
+        """
+        # Setup
+        identity = self.make_identity()
+        data = {"data": {"identity": str(identity.id), "delivered": True}}
+        # Execute
+        with self.assertNumQueries(2):
+            self.client.post(
+                "/api/v1/identities/message_count/",
+                json.dumps(data),
+                content_type="application/json",
+            )
 
     def test_update_failed_message_count_no_identity_supplied(self):
         """

@@ -251,14 +251,17 @@ class UpdateFailedMessageCount(APIView):
             )
 
         if data["delivered"]:
-            identity.failed_message_count = 0
+            if identity.failed_message_count:
+                identity.failed_message_count = 0
+                identity.save(update_fields=["failed_message_count"])
         else:
             if identity.failed_message_count is None:
                 identity.failed_message_count = 1
+                identity.save(update_fields=["failed_message_count"])
             else:
                 identity.failed_message_count = F("failed_message_count") + 1
-        identity.save(update_fields=["failed_message_count"])
-        identity.refresh_from_db()
+                identity.save(update_fields=["failed_message_count"])
+                identity.refresh_from_db()
 
         if identity.failed_message_count >= settings.MAX_CONSECUTIVE_SEND_FAILURES:
             fire_max_send_failures_hook(request.user, identity)
