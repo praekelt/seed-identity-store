@@ -7,14 +7,7 @@ from django.db import models
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from django.utils.encoding import python_2_unicode_compatible
-from prometheus_client import Counter
 from rest_hooks.signals import raw_hook_event
-
-from seed_identity_store.settings import ADDRESS_TYPES
-
-identities_address_change_total = Counter(
-    "identities_address_change_total", "Number of identity address changes", ["type"]
-)
 
 
 class IdentityManager(models.Manager):
@@ -101,33 +94,6 @@ class Identity(models.Model):
 
     def __str__(self):
         return str(self.id)
-
-    def save(self, *args, **kwargs):
-        if (
-            self.id
-            and not self._state.adding
-            and self.details.get("name") != "redacted"
-        ):
-            old_id = Identity.objects.get(pk=self.id)
-
-            for address_type in ADDRESS_TYPES:
-                old_keys = [
-                    str(k)
-                    for k in old_id.details.get("addresses", {})
-                    .get(address_type, {})
-                    .keys()
-                ]
-                new_keys = [
-                    str(k)
-                    for k in self.details.get("addresses", {})
-                    .get(address_type, {})
-                    .keys()
-                ]
-
-                if set(old_keys) != set(new_keys):
-                    identities_address_change_total.labels(address_type).inc()
-
-        super(Identity, self).save(*args, **kwargs)
 
     def remove_details(self, user):
         updated_details = {}

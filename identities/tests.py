@@ -5,7 +5,6 @@ from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.test import TestCase
 from django.urls import reverse
-from prometheus_client import REGISTRY
 from requests_testadapter import TestAdapter, TestSession
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -972,13 +971,17 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
     def test_update_failed_message_count_identity_given(self):
         # Setup
         identity = self.make_identity()
+        identity.failed_message_count = 0
+        identity.save()
+
         data = {"data": {"identity": str(identity.id), "delivered": False}}
         # Execute
-        response = self.client.post(
-            "/api/v1/identities/message_count/",
-            json.dumps(data),
-            content_type="application/json",
-        )
+        with self.assertNumQueries(4):
+            response = self.client.post(
+                "/api/v1/identities/message_count/",
+                json.dumps(data),
+                content_type="application/json",
+            )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         d = Identity.objects.last()
@@ -986,14 +989,18 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
 
     def test_update_failed_message_count_address_given(self):
         # Setup
-        self.make_identity()
+        identity = self.make_identity()
+        identity.failed_message_count = None
+        identity.save()
+
         data = {"data": {"to_addr": "+27123", "delivered": False}}
         # Execute
-        response = self.client.post(
-            "/api/v1/identities/message_count/",
-            json.dumps(data),
-            content_type="application/json",
-        )
+        with self.assertNumQueries(3):
+            response = self.client.post(
+                "/api/v1/identities/message_count/",
+                json.dumps(data),
+                content_type="application/json",
+            )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         d = Identity.objects.last()
@@ -1017,11 +1024,12 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         identity.save()
         data = {"data": {"identity": str(identity.id), "delivered": False}}
         # Execute
-        response = self.client.post(
-            "/api/v1/identities/message_count/",
-            json.dumps(data),
-            content_type="application/json",
-        )
+        with self.assertNumQueries(5):
+            response = self.client.post(
+                "/api/v1/identities/message_count/",
+                json.dumps(data),
+                content_type="application/json",
+            )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         d = Identity.objects.last()
@@ -1044,15 +1052,32 @@ class TestIdentityAPI(AuthenticatedAPITestCase):
         identity.save()
         data = {"data": {"identity": str(identity.id), "delivered": True}}
         # Execute
-        response = self.client.post(
-            "/api/v1/identities/message_count/",
-            json.dumps(data),
-            content_type="application/json",
-        )
+        with self.assertNumQueries(3):
+            response = self.client.post(
+                "/api/v1/identities/message_count/",
+                json.dumps(data),
+                content_type="application/json",
+            )
         # Check
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         d = Identity.objects.last()
         self.assertEqual(d.failed_message_count, 0)
+
+    def test_update_failed_message_count_success(self):
+        """
+        If it's a successful delivery, and the identity failed message count is already
+        reset, then we don't need to touch the identity
+        """
+        # Setup
+        identity = self.make_identity()
+        data = {"data": {"identity": str(identity.id), "delivered": True}}
+        # Execute
+        with self.assertNumQueries(2):
+            self.client.post(
+                "/api/v1/identities/message_count/",
+                json.dumps(data),
+                content_type="application/json",
+            )
 
     def test_update_failed_message_count_no_identity_supplied(self):
         """
@@ -1627,96 +1652,6 @@ class TestMetricsAPI(AuthenticatedAPITestCase):
         # Check
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["scheduled_metrics_initiated"], True)
-
-
-class TestMetrics(AuthenticatedAPITestCase):
-    @responses.activate
-    def test_update_msisdn_metric(self):
-        """
-        When a MSISDN is changed on a identity, a sum metric should be fired
-        """
-        before = (
-            REGISTRY.get_sample_value(
-                "identities_address_change_total", {"type": "msisdn"}
-            )
-            or 0
-        )
-        identity = self.make_identity()
-        new_details = {
-            "addresses": {
-                "msisdn": {"+27123999": {}},
-                "email": {"foo1@bar.com": {}, "foo2@bar.com": {}},
-            }
-        }
-
-        # Execute
-        identity.details = new_details
-        identity.save()
-
-        # Check
-        after = REGISTRY.get_sample_value(
-            "identities_address_change_total", {"type": "msisdn"}
-        )
-        self.assertEqual(1, after - before)
-
-    @responses.activate
-    def test_update_msisdn_metric_negative(self):
-        """
-        When the details of the identity is updated and the MSISDN remains the
-        same, no metric request should be made
-        """
-        before = (
-            REGISTRY.get_sample_value(
-                "identities_address_change_total", {"type": "msisdn"}
-            )
-            or 0
-        )
-        identity = self.make_identity()
-        new_details = {
-            "addresses": {
-                "msisdn": {"+27123": {}},
-                "email": {"foo1@bar.com": {}, "foo2@bar.com": {}},
-            }
-        }
-
-        # Execute
-        identity.details = new_details
-        identity.save()
-
-        # Check
-        after = REGISTRY.get_sample_value(
-            "identities_address_change_total", {"type": "msisdn"}
-        )
-        self.assertEqual(0, after - before)
-
-    @responses.activate
-    def test_update_email_metric(self):
-        """
-        When a email is changed on a identity, a sum metric should be fired
-        """
-        before = (
-            REGISTRY.get_sample_value(
-                "identities_address_change_total", {"type": "email"}
-            )
-            or 0
-        )
-        identity = self.make_identity()
-        new_details = {
-            "addresses": {
-                "msisdn": {"+27123": {}},
-                "email": {"foo1_new@bar.com": {}, "foo2@bar.com": {}},
-            }
-        }
-
-        # Execute
-        identity.details = new_details
-        identity.save()
-
-        # Check
-        after = REGISTRY.get_sample_value(
-            "identities_address_change_total", {"type": "email"}
-        )
-        self.assertEqual(1, after - before)
 
 
 class CachedTokenAuthenticationTests(TestCase):
