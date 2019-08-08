@@ -102,33 +102,6 @@ class Identity(models.Model):
     def __str__(self):
         return str(self.id)
 
-    def save(self, *args, **kwargs):
-        if (
-            self.id
-            and not self._state.adding
-            and self.details.get("name") != "redacted"
-        ):
-            old_id = Identity.objects.get(pk=self.id)
-
-            for address_type in ADDRESS_TYPES:
-                old_keys = [
-                    str(k)
-                    for k in old_id.details.get("addresses", {})
-                    .get(address_type, {})
-                    .keys()
-                ]
-                new_keys = [
-                    str(k)
-                    for k in self.details.get("addresses", {})
-                    .get(address_type, {})
-                    .keys()
-                ]
-
-                if set(old_keys) != set(new_keys):
-                    identities_address_change_total.labels(address_type).inc()
-
-        super(Identity, self).save(*args, **kwargs)
-
     def remove_details(self, user):
         updated_details = {}
         for attribute, value in self.details.items():
